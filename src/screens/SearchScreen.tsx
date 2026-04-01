@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+	Alert,
 	View,
 	StyleSheet,
 	TouchableOpacity,
@@ -51,6 +52,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 	const playSong = usePlayerStore((state) => state.playSong);
 	const addToQueue = usePlayerStore((state) => state.addToQueue);
 	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
+	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
+	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
+	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
 	const playlists = useLibraryStore((state) => state.playlists);
 	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
 	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
@@ -230,6 +234,23 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 				if (item.url) {
 					toggleFavourite(toPlayerTrack(item));
 				}
+			},
+		},
+		{
+			key: 'offline-toggle',
+			label: isTrackDownloaded(item.id) ? 'Remove Download' : 'Download for Offline',
+			onPress: () => {
+				if (isTrackDownloaded(item.id)) {
+					void removeDownloadedTrack(item.id);
+					return;
+				}
+
+				if (!item.url) {
+					Alert.alert('Download unavailable', 'This song cannot be downloaded right now.');
+					return;
+				}
+
+				void downloadTrack(toPlayerTrack(item));
 			},
 		},
 		{

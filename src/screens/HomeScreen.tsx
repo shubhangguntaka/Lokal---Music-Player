@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
 	Alert,
 	FlatList,
@@ -11,6 +11,7 @@ import {
 	ScrollView,
 	StyleSheet,
 	Text,
+	TextInput,
 	TouchableOpacity,
 	useWindowDimensions,
 	View,
@@ -74,6 +75,7 @@ type AlbumItem = {
 type HomeTab = 'Suggested' | 'Songs' | 'Artists' | 'Albums';
 
 const tabs: HomeTab[] = ['Suggested', 'Songs', 'Artists', 'Albums'];
+const SONGS_PAGE_SIZE = 16;
 
 const albumArtwork = require('../../assets/icon.png');
 const artistArtwork = require('../../assets/adaptive-icon.png');
@@ -191,16 +193,41 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const [isArtistOptionsModalVisible, setArtistOptionsModalVisible] = useState(false);
 	const [isAlbumOptionsModalVisible, setAlbumOptionsModalVisible] = useState(false);
 	const [isPagerScrollEnabled, setPagerScrollEnabled] = useState(true);
+	const [songsSearchQuery, setSongsSearchQuery] = useState('');
+	const [songsVisibleCount, setSongsVisibleCount] = useState(SONGS_PAGE_SIZE);
 	const [selectedSong, setSelectedSong] = useState<SongListItem | null>(null);
 	const [selectedArtist, setSelectedArtist] = useState<ArtistItem | null>(null);
 	const [selectedAlbum, setSelectedAlbum] = useState<AlbumItem | null>(null);
+	const currentSong = usePlayerStore((state) => state.currentSong);
 	const addToQueue = usePlayerStore((state) => state.addToQueue);
 	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
+	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
+	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
+	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
 	const playlists = useLibraryStore((state) => state.playlists);
 	const isFavourite = useLibraryStore((state) => state.isFavourite);
 	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
 	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
 	const primaryPlaylist = playlists[0];
+
+	const filteredSongsData = useMemo(() => {
+		const query = songsSearchQuery.trim().toLowerCase();
+		if (!query) {
+			return songsData;
+		}
+
+		return songsData.filter((song) =>
+			song.title.toLowerCase().includes(query) ||
+			song.artist.toLowerCase().includes(query),
+		);
+	}, [songsData, songsSearchQuery]);
+
+	const paginatedSongsData = useMemo(
+		() => filteredSongsData.slice(0, songsVisibleCount),
+		[filteredSongsData, songsVisibleCount],
+	);
+
+	const hasMoreSongs = paginatedSongsData.length < filteredSongsData.length;
 
 	const toPlayerTrack = (song: SongListItem): PlayerTrack => ({
 		id: song.id,
@@ -385,6 +412,17 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 			case 'Add to Blacklist':
 				Alert.alert('Blacklist', `${selectedSong.title} added to blacklist.`);
 				break;
+			case 'Download for Offline':
+				if (!selectedSong.url) {
+					Alert.alert('Download unavailable', 'This song cannot be downloaded right now.');
+					break;
+				}
+
+				await downloadTrack(songTrack);
+				break;
+			case 'Remove Downloaded Song':
+				await removeDownloadedTrack(selectedSong.id);
+				break;
 			case 'Share':
 				await Share.share({
 					message: `${selectedSong.title} by ${selectedSong.artist}`,
@@ -408,6 +446,12 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 
 		closeSongOptions();
 	};
+
+	const songOptionsForSheet = selectedSong
+		? isTrackDownloaded(selectedSong.id)
+			? [...songOptions, 'Remove Downloaded Song']
+			: [...songOptions, 'Download for Offline']
+		: songOptions;
 
 	const handleArtistOptionPress = async (option: string) => {
 		if (!selectedArtist) {
@@ -631,6 +675,14 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 		};
 	}, []);
 
+	useEffect(() => {
+		setSongsVisibleCount(SONGS_PAGE_SIZE);
+	}, [songsSearchQuery, songsData]);
+
+	useEffect(() => {
+		setPlayingSongId(currentSong?.id || '');
+	}, [currentSong]);
+
 	const scrollToTab = (tab: HomeTab, animated: boolean) => {
 		const nextIndex = tabs.indexOf(tab);
 		if (nextIndex < 0) return;
@@ -812,8 +864,8 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 		setOptionsModalVisible(true);
 	};
 
-	const queueFromSongs = (): PlayerTrack[] =>
-		songsData.map((song) => ({
+	const queueFromSongs = (sourceSongs: SongListItem[] = songsData): PlayerTrack[] =>
+		sourceSongs.map((song) => ({
 			id: song.id,
 			title: song.title,
 			artist: song.artist,
@@ -849,7 +901,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 								image: item.image,
 								url: item.url,
 							},
-							queueFromSongs(),
+							queueFromSongs(filteredSongsData),
 						);
 					}}
 				>
@@ -968,7 +1020,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const renderSongsTab = () => (
 		<View style={styles.songsTabContainer}>
 			<View style={styles.songsHeaderRow}>
-				<Text style={styles.songCountText}>{songsData.length} songs</Text>
+				<Text style={styles.songCountText}>{filteredSongsData.length} songs</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
@@ -978,10 +1030,43 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				</TouchableOpacity>
 			</View>
 
+			<View style={styles.songsSearchInputWrap}>
+				<Ionicons name="search" size={18} color="#8B8B8B" />
+				<TextInput
+					style={styles.songsSearchInput}
+					value={songsSearchQuery}
+					onChangeText={setSongsSearchQuery}
+					placeholder="Search in songs"
+					placeholderTextColor="#9A9A9A"
+				/>
+				{songsSearchQuery ? (
+					<TouchableOpacity onPress={() => setSongsSearchQuery('')}>
+						<Ionicons name="close-circle" size={18} color="#8B8B8B" />
+					</TouchableOpacity>
+				) : null}
+			</View>
+
 			<FlatList
-				data={songsData}
+				data={paginatedSongsData}
 				renderItem={renderSongsRow}
 				keyExtractor={(item) => item.id}
+				onEndReached={() => {
+					if (hasMoreSongs) {
+						setSongsVisibleCount((prev) => Math.min(prev + SONGS_PAGE_SIZE, filteredSongsData.length));
+					}
+				}}
+				onEndReachedThreshold={0.4}
+				ListEmptyComponent={<Text style={styles.noSongsText}>No songs match your search.</Text>}
+				ListFooterComponent={
+					hasMoreSongs ? (
+						<TouchableOpacity
+							style={styles.loadMoreButton}
+							onPress={() => setSongsVisibleCount((prev) => Math.min(prev + SONGS_PAGE_SIZE, filteredSongsData.length))}
+						>
+							<Text style={styles.loadMoreText}>Load More</Text>
+						</TouchableOpacity>
+					) : null
+				}
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={styles.songsListContent}
 			/>
@@ -1132,7 +1217,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 						<View style={styles.sheetDivider} />
 
 						<ScrollView showsVerticalScrollIndicator={false}>
-							{songOptions.map((option) => (
+							{songOptionsForSheet.map((option) => (
 								<TouchableOpacity
 									key={option}
 									style={styles.sheetOptionRow}
@@ -1282,6 +1367,22 @@ const styles = StyleSheet.create({
 		fontWeight: '700',
 		color: '#171717',
 	},
+	songsSearchInputWrap: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#F4F4F4',
+		borderRadius: 14,
+		paddingHorizontal: 12,
+		paddingVertical: 9,
+		marginBottom: 10,
+		gap: 8,
+	},
+	songsSearchInput: {
+		flex: 1,
+		fontSize: 14,
+		color: '#1A1A1A',
+		paddingVertical: 0,
+	},
 	sortButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -1294,6 +1395,25 @@ const styles = StyleSheet.create({
 	},
 	songsListContent: {
 		paddingBottom: 24,
+	},
+	noSongsText: {
+		fontSize: 14,
+		color: '#7A7A7A',
+		textAlign: 'center',
+		paddingTop: 30,
+	},
+	loadMoreButton: {
+		alignSelf: 'center',
+		marginTop: 8,
+		paddingHorizontal: 16,
+		paddingVertical: 10,
+		borderRadius: 16,
+		backgroundColor: '#FFF1E2',
+	},
+	loadMoreText: {
+		fontSize: 13,
+		fontWeight: '700',
+		color: colors.primary,
 	},
 	songsRow: {
 		flexDirection: 'row',

@@ -160,6 +160,7 @@ const AppNavigation: React.FC<AppNavigationProps> = ({
 							totalDuration={route.params.totalDuration}
 							onPlaySong={onPlaySong}
 							onBackPress={() => navigation.goBack()}
+							onSearchPress={() => navigation.navigate('Search')}
 						/>
 					)}
 				</RootStack.Screen>
@@ -175,6 +176,7 @@ const AppNavigation: React.FC<AppNavigationProps> = ({
 							totalDuration={route.params.totalDuration}
 							onPlaySong={onPlaySong}
 							onBackPress={() => navigation.goBack()}
+							onSearchPress={() => navigation.navigate('Search')}
 						/>
 					)}
 				</RootStack.Screen>

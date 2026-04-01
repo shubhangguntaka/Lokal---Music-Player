@@ -36,6 +36,7 @@ interface AlbumDetailScreenProps {
 	totalDuration?: string;
 	onPlaySong?: (song: PlayerTrack, queue: PlayerTrack[]) => void;
 	onBackPress?: () => void;
+	onSearchPress?: () => void;
 }
 
 interface SongItem {
@@ -56,6 +57,7 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 	totalDuration = '01:20:38 mins',
 	onPlaySong,
 	onBackPress,
+	onSearchPress,
 }) => {
 	const [playingSongId, setPlayingSongId] = useState<string | null>(null);
 	const [relatedSongs, setRelatedSongs] = useState<SongItem[]>([]);
@@ -63,12 +65,20 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 	const [showAllSongs, setShowAllSongs] = useState(false);
 	const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
 	const [selectedOptionSong, setSelectedOptionSong] = useState<SongItem | null>(null);
+	const currentSong = usePlayerStore((state) => state.currentSong);
 	const addToQueue = usePlayerStore((state) => state.addToQueue);
 	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
+	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
+	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
+	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
 	const playlists = useLibraryStore((state) => state.playlists);
 	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
 	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
 	const primaryPlaylist = playlists[0];
+
+	useEffect(() => {
+		setPlayingSongId(currentSong?.id || null);
+	}, [currentSong]);
 
 	useEffect(() => {
 		let mounted = true;
@@ -234,6 +244,19 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 			},
 		},
 		{
+			key: 'offline-toggle',
+			label: isTrackDownloaded(song.id) ? 'Remove Download' : 'Download for Offline',
+			onPress: () => {
+				if (isTrackDownloaded(song.id)) {
+					void removeDownloadedTrack(song.id);
+					return;
+				}
+
+				if (!song.url) return;
+				void downloadTrack(toTrack(song));
+			},
+		},
+		{
 			key: 'share',
 			label: 'Share',
 			onPress: () => {
@@ -296,16 +319,7 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 					<Ionicons name="chevron-back" size={28} color="#1A1A1A" />
 				</TouchableOpacity>
 				<View style={styles.headerActions}>
-					<TouchableOpacity
-						onPress={() => {
-							if (!playbackQueue.length) {
-								Alert.alert('No songs yet', 'Related songs are still loading.');
-								return;
-							}
-
-							onPlaySong?.(playbackQueue[0], playbackQueue);
-						}}
-					>
+					<TouchableOpacity onPress={onSearchPress}>
 						<Ionicons name="search" size={24} color="#1A1A1A" />
 					</TouchableOpacity>
 					<TouchableOpacity style={{ marginLeft: 16 }} onPress={openAlbumOptionsModal}>

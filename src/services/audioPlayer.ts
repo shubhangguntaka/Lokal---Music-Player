@@ -1,4 +1,9 @@
-import { Audio, AVPlaybackStatus } from 'expo-av';
+import {
+	Audio,
+	AVPlaybackStatus,
+	InterruptionModeAndroid,
+	InterruptionModeIOS,
+} from 'expo-av';
 
 let sound: Audio.Sound | null = null;
 
@@ -6,6 +11,7 @@ type PlaybackStatusSnapshot = {
 	positionMillis: number;
 	durationMillis: number;
 	isPlaying: boolean;
+	didJustFinish: boolean;
 };
 
 let playbackStatusListener: ((status: PlaybackStatusSnapshot) => void) | null = null;
@@ -17,6 +23,7 @@ const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
 		positionMillis: status.positionMillis ?? 0,
 		durationMillis: status.durationMillis ?? 0,
 		isPlaying: status.isPlaying ?? false,
+		didJustFinish: status.didJustFinish ?? false,
 	});
 };
 
@@ -31,8 +38,11 @@ export const setPlaybackStatusListener = (
 
 const ensureAudioMode = async () => {
 	await Audio.setAudioModeAsync({
-		staysActiveInBackground: false,
+		staysActiveInBackground: true,
+		allowsRecordingIOS: false,
+		interruptionModeIOS: InterruptionModeIOS.DoNotMix,
 		playsInSilentModeIOS: true,
+		interruptionModeAndroid: InterruptionModeAndroid.DoNotMix,
 		shouldDuckAndroid: true,
 		playThroughEarpieceAndroid: false,
 	});
@@ -81,5 +91,6 @@ export const unloadSong = async () => {
 		positionMillis: 0,
 		durationMillis: 0,
 		isPlaying: false,
+		didJustFinish: false,
 	});
 };

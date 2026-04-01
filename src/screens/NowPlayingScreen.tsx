@@ -4,6 +4,7 @@ import {
 	Animated,
 	Easing,
 	Image,
+	Modal,
 	PanResponder,
 	Share,
 	ScrollView,
@@ -21,6 +22,7 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { PlayerTrack } from '../components/Player';
 import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
+import { usePlayerStore } from '../store/playerStore';
 
 type NowPlayingScreenProps = {
 	track: PlayerTrack;
@@ -36,7 +38,7 @@ type NowPlayingScreenProps = {
 	onChangePlaybackRate?: (playbackRate: number) => void;
 };
 
-type PlayerOptionsSheet = 'none' | 'speed' | 'timer' | 'track' | 'cast';
+type PlayerOptionsSheet = 'none' | 'speed' | 'timer' | 'track';
 
 const formatTime = (seconds: number) => {
 	const mins = Math.floor(seconds / 60);
@@ -141,12 +143,27 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	const [isScrubbing, setIsScrubbing] = useState(false);
 	const [scrubProgress, setScrubProgress] = useState(progress);
 	const [showLyrics, setShowLyrics] = useState(false);
+	const [isQueueModalVisible, setQueueModalVisible] = useState(false);
 	const [sleepTimerLabel, setSleepTimerLabel] = useState<string | null>(null);
+	const [isDownloadingCurrentTrack, setDownloadingCurrentTrack] = useState(false);
 	const [activeOptionsSheet, setActiveOptionsSheet] = useState<PlayerOptionsSheet>('none');
 	const trackWidthRef = useRef(0);
 	const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const isPlayingRef = useRef(isPlaying);
 	const artworkSize = Math.min(width - 34, 340);
+	const queue = usePlayerStore((state) => state.queue);
+	const currentTrackIndex = usePlayerStore((state) => state.currentTrackIndex);
+	const isShuffleEnabled = usePlayerStore((state) => state.isShuffleEnabled);
+	const repeatMode = usePlayerStore((state) => state.repeatMode);
+	const playQueueIndex = usePlayerStore((state) => state.playQueueIndex);
+	const moveQueueItem = usePlayerStore((state) => state.moveQueueItem);
+	const removeFromQueue = usePlayerStore((state) => state.removeFromQueue);
+	const toggleShuffleMode = usePlayerStore((state) => state.toggleShuffleMode);
+	const cycleRepeatMode = usePlayerStore((state) => state.cycleRepeatMode);
+	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
+	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
+	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
+	const isCurrentTrackDownloaded = isTrackDownloaded(track.id);
 
 	const displayProgress = isScrubbing ? scrubProgress : progress;
 
@@ -283,12 +300,44 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 		});
 	};
 
-	const handleCast = () => {
-		setActiveOptionsSheet('cast');
-	};
-
 	const openTrackActions = () => {
 		setActiveOptionsSheet('track');
+	};
+
+	const closeQueuePanel = () => {
+		setQueueModalVisible(false);
+	};
+
+	const openQueuePanel = () => {
+		setQueueModalVisible(true);
+	};
+
+	const toggleOfflineForCurrentTrack = async () => {
+		if (isDownloadingCurrentTrack) {
+			return;
+		}
+
+		if (isCurrentTrackDownloaded) {
+			await removeDownloadedTrack(track.id);
+			Alert.alert('Removed', `${track.title} removed from offline storage.`);
+			return;
+		}
+
+		if (!track.url) {
+			Alert.alert('Download unavailable', 'This track cannot be downloaded right now.');
+			return;
+		}
+
+		setDownloadingCurrentTrack(true);
+		const didDownload = await downloadTrack(track);
+		setDownloadingCurrentTrack(false);
+
+		if (!didDownload) {
+			Alert.alert('Download failed', 'Unable to save this track for offline playback.');
+			return;
+		}
+
+		Alert.alert('Downloaded', `${track.title} is available offline.`);
 	};
 
 	const speedSheetOptions: OptionSheetAction[] = [0.75, 1, 1.25, 1.5, 2].map((rate) => ({
@@ -308,6 +357,22 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	const trackSheetOptions: OptionSheetAction[] = [
 		{ key: 'share', label: 'Share', onPress: () => void handleShareTrack() },
 		{
+			key: 'queue-open',
+			label: `Show Queue (${queue.length})`,
+			onPress: openQueuePanel,
+		},
+		{
+			key: 'offline-toggle',
+			label: isCurrentTrackDownloaded
+				? 'Remove Download'
+				: isDownloadingCurrentTrack
+					? 'Downloading...'
+					: 'Download for Offline',
+			onPress: () => {
+				void toggleOfflineForCurrentTrack();
+			},
+		},
+		{
 			key: 'details',
 			label: 'Details',
 			onPress: () => {
@@ -324,36 +389,33 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 		},
 	];
 
-	const castSheetOptions: OptionSheetAction[] = [
-		{ key: 'cast-info', label: 'Casting support will be added soon.', onPress: () => undefined },
-	];
-
 	const activeSheetOptions =
 		activeOptionsSheet === 'speed'
 			? speedSheetOptions
 			: activeOptionsSheet === 'timer'
 				? timerSheetOptions
-				: activeOptionsSheet === 'track'
-					? trackSheetOptions
-					: castSheetOptions;
+				: trackSheetOptions;
 
 	const activeSheetTitle =
 		activeOptionsSheet === 'speed'
 			? 'Playback Speed'
 			: activeOptionsSheet === 'timer'
 				? 'Sleep Timer'
-				: activeOptionsSheet === 'track'
-					? track.title
-					: 'Cast';
+				: track.title;
 
 	const activeSheetSubtitle =
 		activeOptionsSheet === 'speed'
 			? `Current: ${playbackRate.toFixed(2)}x`
 			: activeOptionsSheet === 'timer'
 				? sleepTimerLabel ? `Active: ${sleepTimerLabel}` : 'Choose timer duration'
-				: activeOptionsSheet === 'track'
-					? track.artist
-					: 'Devices';
+				: track.artist;
+
+	const repeatModeLabel =
+		repeatMode === 'off'
+			? 'Rpt Off'
+			: repeatMode === 'all'
+				? 'Rpt All'
+				: 'Rpt 1';
 
 	return (
 		<SafeAreaView style={styles.container}>
@@ -433,9 +495,28 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 						<Ionicons name="timer-outline" size={28} color="#111111" />
 						<Text style={styles.bottomActionLabel}>{sleepTimerLabel || 'Timer'}</Text>
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.bottomActionButton} onPress={handleCast}>
-						<Ionicons name="tv-outline" size={28} color="#111111" />
-						<Text style={styles.bottomActionLabel}>Cast</Text>
+					<TouchableOpacity style={styles.bottomActionButton} onPress={openQueuePanel}>
+						<Ionicons name="list-outline" size={28} color="#111111" />
+						<Text style={styles.bottomActionLabel}>Queue</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={styles.bottomActionButton}
+						onPress={toggleShuffleMode}
+					>
+						<Ionicons
+							name="shuffle"
+							size={28}
+							color={isShuffleEnabled ? colors.primary : '#111111'}
+						/>
+						<Text style={styles.bottomActionLabel}>{isShuffleEnabled ? 'Shuffle On' : 'Shuffle'}</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.bottomActionButton} onPress={cycleRepeatMode}>
+						<Ionicons
+							name="repeat"
+							size={26}
+							color={repeatMode !== 'off' ? colors.primary : '#111111'}
+						/>
+						<Text style={styles.bottomActionLabel}>{repeatModeLabel}</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.bottomActionButton} onPress={openTrackActions}>
 						<Ionicons name="ellipsis-vertical" size={26} color="#111111" />
@@ -464,6 +545,94 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 					</View>
 				)}
 			</ScrollView>
+
+			<Modal
+				visible={isQueueModalVisible}
+				transparent
+				animationType="slide"
+				onRequestClose={closeQueuePanel}
+			>
+				<TouchableOpacity
+					style={styles.queueModalOverlay}
+					activeOpacity={1}
+					onPress={closeQueuePanel}
+				>
+					<TouchableOpacity
+						activeOpacity={1}
+						style={styles.queueSheet}
+						onPress={() => undefined}
+					>
+						<View style={styles.queueSheetHeader}>
+							<Text style={styles.queueSheetTitle}>Queue ({queue.length})</Text>
+							<TouchableOpacity onPress={closeQueuePanel}>
+								<Ionicons name="close" size={24} color="#1A1A1A" />
+							</TouchableOpacity>
+						</View>
+						<Text style={styles.queueSheetSubtitle}>Queue is stored locally.</Text>
+
+						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.queueListContent}>
+							{queue.length === 0 ? (
+								<Text style={styles.queueEmptyText}>Queue is empty.</Text>
+							) : (
+								queue.map((queueTrack, index) => {
+									const isCurrentQueueTrack = index === currentTrackIndex;
+
+									return (
+										<View
+											key={`${queueTrack.id}-${index}`}
+											style={[styles.queueRow, isCurrentQueueTrack && styles.queueRowActive]}
+										>
+											<TouchableOpacity
+												style={styles.queueTrackInfo}
+												onPress={() => {
+													playQueueIndex(index);
+													closeQueuePanel();
+												}}
+											>
+												<Image source={queueTrack.image} style={styles.queueTrackImage} />
+												<View style={styles.queueTextWrap}>
+													<Text numberOfLines={1} style={styles.queueTrackTitle}>
+														{queueTrack.title}
+													</Text>
+													<Text numberOfLines={1} style={styles.queueTrackArtist}>
+														{queueTrack.artist}
+													</Text>
+												</View>
+											</TouchableOpacity>
+
+											<View style={styles.queueControls}>
+												<TouchableOpacity
+													disabled={index === 0}
+													onPress={() => moveQueueItem(index, Math.max(index - 1, 0))}
+												>
+													<Ionicons
+														name="chevron-up"
+														size={20}
+														color={index === 0 ? '#B9B9B9' : '#444444'}
+													/>
+												</TouchableOpacity>
+												<TouchableOpacity
+													disabled={index === queue.length - 1}
+													onPress={() => moveQueueItem(index, Math.min(index + 1, queue.length - 1))}
+												>
+													<Ionicons
+														name="chevron-down"
+														size={20}
+														color={index === queue.length - 1 ? '#B9B9B9' : '#444444'}
+													/>
+												</TouchableOpacity>
+												<TouchableOpacity onPress={() => removeFromQueue(queueTrack.id)}>
+													<Ionicons name="trash-outline" size={18} color="#C53929" />
+												</TouchableOpacity>
+											</View>
+										</View>
+									);
+								})
+							)}
+						</ScrollView>
+					</TouchableOpacity>
+				</TouchableOpacity>
+			</Modal>
 
 			<OptionsSheetModal
 				visible={activeOptionsSheet !== 'none'}
@@ -619,16 +788,98 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 	},
 	bottomActionButton: {
-		width: 72,
+		flex: 1,
 		alignItems: 'center',
 		justifyContent: 'center',
 		paddingVertical: 4,
 	},
 	bottomActionLabel: {
 		marginTop: 3,
-		fontSize: 11,
+		fontSize: 10,
 		fontWeight: '600',
 		color: '#2A2A2A',
+	},
+	queueModalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.48)',
+		justifyContent: 'flex-end',
+	},
+	queueSheet: {
+		maxHeight: '78%',
+		backgroundColor: '#FFFFFF',
+		borderTopLeftRadius: 24,
+		borderTopRightRadius: 24,
+		paddingHorizontal: 14,
+		paddingTop: 12,
+		paddingBottom: 10,
+	},
+	queueSheetHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		marginBottom: 6,
+	},
+	queueSheetTitle: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#1A1A1A',
+	},
+	queueSheetSubtitle: {
+		fontSize: 12,
+		color: '#7A7A7A',
+		marginBottom: 8,
+	},
+	queueListContent: {
+		paddingBottom: 24,
+	},
+	queueEmptyText: {
+		fontSize: 13,
+		color: '#757575',
+		paddingVertical: 12,
+		textAlign: 'center',
+	},
+	queueRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 8,
+		borderTopWidth: 1,
+		borderTopColor: '#F1F1F1',
+	},
+	queueRowActive: {
+		backgroundColor: '#FFF3E6',
+		borderRadius: 10,
+		paddingHorizontal: 6,
+	},
+	queueTrackInfo: {
+		flex: 1,
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	queueTrackImage: {
+		width: 44,
+		height: 44,
+		borderRadius: 10,
+		backgroundColor: '#ECECEC',
+		marginRight: 10,
+	},
+	queueTextWrap: {
+		flex: 1,
+	},
+	queueTrackTitle: {
+		fontSize: 13,
+		fontWeight: '700',
+		color: '#1E1E1E',
+	},
+	queueTrackArtist: {
+		fontSize: 11,
+		color: '#7A7A7A',
+		marginTop: 2,
+	},
+	queueControls: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+		marginLeft: 8,
 	},
 	lyricsArea: {
 		marginTop: 26,
