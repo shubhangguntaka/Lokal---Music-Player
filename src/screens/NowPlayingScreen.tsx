@@ -23,6 +23,7 @@ import { colors, useThemeColors } from '../theme/colors';
 import { PlayerTrack } from '../components/Player';
 import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
 import { usePlayerStore } from '../store/playerStore';
+import { useLibraryStore } from '../store/libraryStore';
 
 type NowPlayingScreenProps = {
 	track: PlayerTrack;
@@ -164,7 +165,10 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
 	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
 	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
+	const isFavourite = useLibraryStore((state) => state.isFavourite);
+	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
 	const isCurrentTrackDownloaded = isTrackDownloaded(track.id);
+	const isCurrentTrackFavourite = isFavourite(track.id);
 
 	const displayProgress = isScrubbing ? scrubProgress : progress;
 
@@ -305,6 +309,10 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 		setActiveOptionsSheet('track');
 	};
 
+	const toggleFavouriteForCurrentTrack = () => {
+		toggleFavourite(track);
+	};
+
 	const closeQueuePanel = () => {
 		setQueueModalVisible(false);
 	};
@@ -436,11 +444,23 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 					/>
 				</View>
 
-				<MarqueeText
-					text={track.title}
-					textStyle={[styles.title, { color: theme.text }]}
-					containerStyle={styles.titleWrap}
-				/>
+				<View style={styles.titleRow}>
+					<MarqueeText
+						text={track.title}
+						textStyle={[styles.title, { color: theme.text }]}
+						containerStyle={styles.titleWrap}
+					/>
+					<TouchableOpacity
+						style={styles.titleActionButton}
+						onPress={toggleFavouriteForCurrentTrack}
+					>
+						<Ionicons
+							name={isCurrentTrackFavourite ? 'heart' : 'heart-outline'}
+							size={28}
+							color={isCurrentTrackFavourite ? theme.primary : theme.icon}
+						/>
+					</TouchableOpacity>
+				</View>
 				<MarqueeText
 					text={track.artist}
 					textStyle={[styles.artist, { color: theme.subText }]}
@@ -691,8 +711,19 @@ const styles = StyleSheet.create({
 		backgroundColor: '#ECECEC',
 	},
 	titleWrap: {
+		width: undefined,
+		flex: 1,
+		minHeight: 34,
+	},
+	titleRow: {
 		marginTop: 24,
 		minHeight: 34,
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	titleActionButton: {
+		marginLeft: 8,
+		padding: 2,
 	},
 	title: {
 		fontSize: 28,
