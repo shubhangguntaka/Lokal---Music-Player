@@ -1,13 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
 	FlatList,
 	Image,
 	ImageSourcePropType,
 	Modal,
+	NativeScrollEvent,
+	NativeSyntheticEvent,
 	ScrollView,
 	StyleSheet,
 	Text,
 	TouchableOpacity,
+	useWindowDimensions,
 	View,
 } from 'react-native';
 import { Feather, Ionicons } from '@expo/vector-icons';
@@ -63,7 +66,7 @@ type AlbumItem = {
 
 type HomeTab = 'Suggested' | 'Songs' | 'Artists' | 'Albums';
 
-const tabs = ['Suggested', 'Songs', 'Artists', 'Albums'];
+const tabs: HomeTab[] = ['Suggested', 'Songs', 'Artists', 'Albums'];
 
 const albumArtwork = require('../../assets/icon.png');
 const artistArtwork = require('../../assets/adaptive-icon.png');
@@ -167,6 +170,8 @@ const albumOptions = ['Play', 'Play Next', 'Add to Playing Queue', 'Add to Playl
 
 const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist: ArtistItem) => void; onAlbumPress?: (album: AlbumItem) => void; onPlaySong?: (song: PlayerTrack, queue: PlayerTrack[]) => void }> = ({ onSearchPress, onArtistPress, onAlbumPress, onPlaySong }) => {
 	const [activeTab, setActiveTab] = useState<HomeTab>('Suggested');
+	const pagerRef = useRef<ScrollView>(null);
+	const { width } = useWindowDimensions();
 	const [currentSort, setCurrentSort] = useState('Ascending');
 	const [playingSongId, setPlayingSongId] = useState('');
 	const [songsData, setSongsData] = useState<SongListItem[]>(defaultSongsData);
@@ -290,9 +295,38 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 		};
 	}, []);
 
-	const handleSeeAllPress = (tab: HomeTab) => {
-		setActiveTab(tab);
+	const scrollToTab = (tab: HomeTab, animated: boolean) => {
+		const nextIndex = tabs.indexOf(tab);
+		if (nextIndex < 0) return;
+
+		pagerRef.current?.scrollTo({
+			x: nextIndex * width,
+			animated,
+		});
 	};
+
+	const handleChangeTab = (tab: HomeTab, animated = true) => {
+		setActiveTab(tab);
+		scrollToTab(tab, animated);
+	};
+
+	const handleSeeAllPress = (tab: HomeTab) => {
+		handleChangeTab(tab);
+	};
+
+	const handlePagerEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		const offsetX = event.nativeEvent.contentOffset.x;
+		const nextIndex = Math.round(offsetX / width);
+		const nextTab = tabs[nextIndex];
+
+		if (nextTab && nextTab !== activeTab) {
+			setActiveTab(nextTab);
+		}
+	};
+
+	useEffect(() => {
+		scrollToTab(activeTab, false);
+	}, [width]);
 
 	const renderSongCard = ({ item }: { item: MusicItem }) => (
 		<TouchableOpacity style={styles.songCard}>
@@ -600,12 +634,25 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	return (
 		<SafeAreaView style={styles.screen}>
 			<Header onSearchPress={onSearchPress} />
-			<TabBar tabs={tabs} activeTab={activeTab} onTabPress={(tab) => setActiveTab(tab as HomeTab)} />
+			<TabBar tabs={tabs} activeTab={activeTab} onTabPress={(tab) => handleChangeTab(tab as HomeTab)} />
 
-			{activeTab === 'Songs' && renderSongsTab()}
-			{activeTab === 'Artists' && renderArtistsTab()}
-			{activeTab === 'Suggested' && renderSuggestedTab()}
-			{activeTab === 'Albums' && renderAlbumsTab()}
+			<ScrollView
+				ref={pagerRef}
+				horizontal
+				pagingEnabled
+				directionalLockEnabled
+				decelerationRate="fast"
+				showsHorizontalScrollIndicator={false}
+				overScrollMode="never"
+				scrollEventThrottle={16}
+				onMomentumScrollEnd={handlePagerEnd}
+				style={styles.pager}
+			>
+				<View style={[styles.pagerPage, { width }]}>{renderSuggestedTab()}</View>
+				<View style={[styles.pagerPage, { width }]}>{renderSongsTab()}</View>
+				<View style={[styles.pagerPage, { width }]}>{renderArtistsTab()}</View>
+				<View style={[styles.pagerPage, { width }]}>{renderAlbumsTab()}</View>
+			</ScrollView>
 
 			<Modal
 				visible={isSortModalVisible}
@@ -788,6 +835,12 @@ const styles = StyleSheet.create({
 	screen: {
 		flex: 1,
 		backgroundColor: colors.background,
+	},
+	pager: {
+		flex: 1,
+	},
+	pagerPage: {
+		flex: 1,
 	},
 	scrollContent: {
 		paddingTop: 18,
