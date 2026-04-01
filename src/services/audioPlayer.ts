@@ -38,7 +38,7 @@ const ensureAudioMode = async () => {
 	});
 };
 
-export const playSongFromUrl = async (url: string) => {
+export const playSongFromUrl = async (url: string, playbackRate = 1) => {
 	await ensureAudioMode();
 
 	if (sound) {
@@ -49,7 +49,13 @@ export const playSongFromUrl = async (url: string) => {
 	sound = new Audio.Sound();
 	sound.setOnPlaybackStatusUpdate(handlePlaybackStatusUpdate);
 	await sound.loadAsync({ uri: url });
+	await sound.setRateAsync(Math.max(0.75, Math.min(playbackRate, 2)), true);
 	await sound.playAsync();
+};
+
+export const setSongPlaybackRate = async (playbackRate: number) => {
+	if (!sound) return;
+	await sound.setRateAsync(Math.max(0.75, Math.min(playbackRate, 2)), true);
 };
 
 export const pauseSong = async () => {

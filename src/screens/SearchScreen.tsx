@@ -9,6 +9,7 @@ import {
 	Image,
 	FlatList,
 	ActivityIndicator,
+	Share,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -16,6 +17,8 @@ import { searchSongs, searchArtists, searchAlbums, SearchResult, getArtistName, 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePlayerStore } from '../store/playerStore';
 import { PlayerTrack } from '../components/Player';
+import { useLibraryStore } from '../store/libraryStore';
+import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
 
 type SearchFilter = 'Songs' | 'Artists' | 'Albums' | 'Folders';
 
@@ -42,7 +45,16 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 	const [results, setResults] = useState<SongItem[]>([]);
 	const [hasSearched, setHasSearched] = useState(false);
 	const [recentSearches, setRecentSearches] = useState<string[]>(INITIAL_RECENT_SEARCHES);
+	const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
+	const [selectedOptionItem, setSelectedOptionItem] = useState<SongItem | null>(null);
+	const [optionsMode, setOptionsMode] = useState<'song' | 'entity'>('song');
 	const playSong = usePlayerStore((state) => state.playSong);
+	const addToQueue = usePlayerStore((state) => state.addToQueue);
+	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
+	const playlists = useLibraryStore((state) => state.playlists);
+	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
+	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
+	const primaryPlaylist = playlists[0];
 
 	const filters: SearchFilter[] = ['Songs', 'Artists', 'Albums', 'Folders'];
 
@@ -157,8 +169,120 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		playSong(selectedTrack, queue.length ? queue : [selectedTrack]);
 	};
 
+	const toPlayerTrack = (item: SongItem): PlayerTrack => ({
+		id: item.id,
+		title: item.title,
+		artist: item.artist || 'Unknown Artist',
+		image: item.image,
+		url: item.url,
+	});
+
+	const closeOptionsModal = () => {
+		setOptionsModalVisible(false);
+		setSelectedOptionItem(null);
+	};
+
+	const openSongOptions = (item: SongItem) => {
+		setOptionsMode('song');
+		setSelectedOptionItem(item);
+		setOptionsModalVisible(true);
+	};
+
+	const openArtistOrAlbumOptions = (item: SongItem) => {
+		setOptionsMode('entity');
+		setSelectedOptionItem(item);
+		setOptionsModalVisible(true);
+	};
+
+	const getSongOptions = (item: SongItem): OptionSheetAction[] => [
+		{ key: 'play', label: 'Play', onPress: () => handlePlaySong(item) },
+		{
+			key: 'play-next',
+			label: 'Play Next',
+			onPress: () => {
+				if (item.url) {
+					addToQueueNext(toPlayerTrack(item));
+				}
+			},
+		},
+		{
+			key: 'add-queue',
+			label: 'Add to Queue',
+			onPress: () => {
+				if (item.url) {
+					addToQueue(toPlayerTrack(item));
+				}
+			},
+		},
+		{
+			key: 'add-playlist',
+			label: 'Add to Playlist',
+			onPress: () => {
+				if (item.url && primaryPlaylist) {
+					addTrackToPlaylist(primaryPlaylist.id, toPlayerTrack(item));
+				}
+			},
+		},
+		{
+			key: 'toggle-favourite',
+			label: 'Toggle Favourite',
+			onPress: () => {
+				if (item.url) {
+					toggleFavourite(toPlayerTrack(item));
+				}
+			},
+		},
+		{
+			key: 'share',
+			label: 'Share',
+			onPress: () => {
+				void Share.share({ message: `${item.title} - ${item.subtitle}` });
+			},
+		},
+	];
+
+	const getEntityOptions = (item: SongItem): OptionSheetAction[] => [
+		{
+			key: 'show-songs',
+			label: 'Show Songs',
+			onPress: () => {
+				setActiveFilter('Songs');
+				void handleSearch(`${item.title} songs`);
+			},
+		},
+		{
+			key: 'share',
+			label: 'Share',
+			onPress: () => {
+				void Share.share({ message: `${item.title} on Lokal Music Player` });
+			},
+		},
+	];
+
+	const handleResultPress = (item: SongItem) => {
+		if (activeFilter === 'Songs') {
+			handlePlaySong(item);
+			return;
+		}
+
+		setActiveFilter('Songs');
+		void handleSearch(`${item.title} songs`);
+	};
+
+	const optionActions = selectedOptionItem
+		? optionsMode === 'song'
+			? getSongOptions(selectedOptionItem)
+			: getEntityOptions(selectedOptionItem)
+		: [];
+
+	const optionSubtitle = selectedOptionItem
+		? optionsMode === 'song'
+			? selectedOptionItem.subtitle
+			: selectedOptionItem.subtitle || 'Browse related songs'
+		: undefined;
+
 	const renderSearchResult = ({ item }: { item: SongItem }) => (
-		<TouchableOpacity style={styles.resultRow}>
+		<TouchableOpacity style={styles.resultRow} onPress={() => handleResultPress(item)}>
 			<Image source={item.image} style={styles.resultImage} />
 			<View style={styles.resultTextContainer}>
 				<Text style={styles.resultTitle} numberOfLines={1}>
@@ -175,7 +299,17 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 			>
 				<Ionicons name="play-circle" size={36} color={colors.primary} />
 			</TouchableOpacity>
-			<TouchableOpacity style={styles.moreButton}>
+			<TouchableOpacity
+				style={styles.moreButton}
+				onPress={() => {
+					if (activeFilter === 'Songs') {
+						openSongOptions(item);
+						return;
+					}
+
+					openArtistOrAlbumOptions(item);
+				}}
+			>
 				<Feather name="more-vertical" size={20} color="#1A1A1A" />
 			</TouchableOpacity>
 		</TouchableOpacity>
@@ -293,6 +427,15 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 					/>
 				)}
 			</ScrollView>
+
+			<OptionsSheetModal
+				visible={isOptionsModalVisible && !!selectedOptionItem}
+				onClose={closeOptionsModal}
+				title={selectedOptionItem?.title}
+				subtitle={optionSubtitle}
+				image={selectedOptionItem?.image}
+				options={optionActions}
+			/>
 		</SafeAreaView>
 	);
 };

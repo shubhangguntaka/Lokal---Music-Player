@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
 	ActivityIndicator,
+	Alert,
 	View,
 	StyleSheet,
 	Text,
 	Image,
+	Share,
 	TouchableOpacity,
 	ScrollView,
 	FlatList,
@@ -20,6 +22,9 @@ import {
 	searchSongsByQueries,
 	SearchResult,
 } from '../services/api';
+import { useLibraryStore } from '../store/libraryStore';
+import { usePlayerStore } from '../store/playerStore';
+import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
 
 interface ArtistDetailScreenProps {
 	artistId: string;
@@ -53,9 +58,19 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 	const [playingSongId, setPlayingSongId] = useState<string | null>(null);
 	const [relatedSongs, setRelatedSongs] = useState<SongItem[]>([]);
 	const [isLoadingSongs, setIsLoadingSongs] = useState(false);
+	const [showAllSongs, setShowAllSongs] = useState(false);
+	const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
+	const [selectedOptionSong, setSelectedOptionSong] = useState<SongItem | null>(null);
+	const addToQueue = usePlayerStore((state) => state.addToQueue);
+	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
+	const playlists = useLibraryStore((state) => state.playlists);
+	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
+	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
+	const primaryPlaylist = playlists[0];
 
 	useEffect(() => {
 		let mounted = true;
+		setShowAllSongs(false);
 
 		const fetchRelatedSongs = async () => {
 			setIsLoadingSongs(true);
@@ -100,6 +115,8 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 		};
 	}, [artistName]);
 
+	const visibleSongs = showAllSongs ? relatedSongs : relatedSongs.slice(0, 6);
+
 	const playbackQueue: PlayerTrack[] = useMemo(
 		() =>
 			relatedSongs
@@ -113,6 +130,117 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 				})),
 		[relatedSongs],
 	);
+
+	const toTrack = (song: SongItem): PlayerTrack => ({
+		id: song.id,
+		title: song.title,
+		artist: song.artist,
+		image: song.image,
+		url: song.url,
+	});
+
+	const closeOptionsModal = () => {
+		setOptionsModalVisible(false);
+		setSelectedOptionSong(null);
+	};
+
+	const openArtistOptionsModal = () => {
+		setSelectedOptionSong(null);
+		setOptionsModalVisible(true);
+	};
+
+	const openSongOptionsModal = (song: SongItem) => {
+		setSelectedOptionSong(song);
+		setOptionsModalVisible(true);
+	};
+
+	const artistOptionActions: OptionSheetAction[] = [
+		{
+			key: 'play',
+			label: 'Play',
+			onPress: () => {
+				if (!playbackQueue.length) return;
+				onPlaySong?.(playbackQueue[0], playbackQueue);
+			},
+		},
+		{
+			key: 'shuffle',
+			label: 'Shuffle',
+			onPress: () => {
+				if (!playbackQueue.length) return;
+				const randomIndex = Math.floor(Math.random() * playbackQueue.length);
+				onPlaySong?.(playbackQueue[randomIndex], playbackQueue);
+			},
+		},
+		{
+			key: 'playlist-top',
+			label: 'Add Top Songs to Playlist',
+			onPress: () => {
+				if (!primaryPlaylist) return;
+				playbackQueue.slice(0, 5).forEach((track) => addTrackToPlaylist(primaryPlaylist.id, track));
+			},
+		},
+		{
+			key: 'share',
+			label: 'Share',
+			onPress: () => {
+				void Share.share({ message: `${artistName} on Lokal Music Player` });
+			},
+		},
+	];
+
+	const songOptionActions = (song: SongItem): OptionSheetAction[] => [
+		{
+			key: 'play',
+			label: 'Play',
+			onPress: () => {
+				if (!song.url) return;
+				setPlayingSongId(song.id);
+				onPlaySong?.(toTrack(song), playbackQueue);
+			},
+		},
+		{
+			key: 'play-next',
+			label: 'Play Next',
+			onPress: () => {
+				if (!song.url) return;
+				addToQueueNext(toTrack(song));
+			},
+		},
+		{
+			key: 'add-queue',
+			label: 'Add to Queue',
+			onPress: () => {
+				if (!song.url) return;
+				addToQueue(toTrack(song));
+			},
+		},
+		{
+			key: 'add-playlist',
+			label: 'Add to Playlist',
+			onPress: () => {
+				if (!song.url || !primaryPlaylist) return;
+				addTrackToPlaylist(primaryPlaylist.id, toTrack(song));
+			},
+		},
+		{
+			key: 'toggle-favourite',
+			label: 'Toggle Favourite',
+			onPress: () => {
+				if (!song.url) return;
+				toggleFavourite(toTrack(song));
+			},
+		},
+		{
+			key: 'share',
+			label: 'Share',
+			onPress: () => {
+				void Share.share({ message: `${song.title} - ${song.artist}` });
+			},
+		},
+	];
+
+	const optionActions = selectedOptionSong ? songOptionActions(selectedOptionSong) : artistOptionActions;
 
 	const renderSongRow = ({ item }: { item: SongItem }) => {
 		const isPlaying = playingSongId === item.id;
@@ -151,7 +279,7 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 						color={colors.primary}
 					/>
 				</TouchableOpacity>
-				<TouchableOpacity style={styles.moreButton}>
+				<TouchableOpacity style={styles.moreButton} onPress={() => openSongOptionsModal(item)}>
 					<Feather name="more-vertical" size={20} color="#1A1A1A" />
 				</TouchableOpacity>
 			</View>
@@ -166,10 +294,19 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 					<Ionicons name="chevron-back" size={28} color="#1A1A1A" />
 				</TouchableOpacity>
 				<View style={styles.headerActions}>
-					<TouchableOpacity>
+					<TouchableOpacity
+						onPress={() => {
+							if (!playbackQueue.length) {
+								Alert.alert('No songs yet', 'Related songs are still loading.');
+								return;
+							}
+
+							onPlaySong?.(playbackQueue[0], playbackQueue);
+						}}
+					>
 						<Ionicons name="search" size={24} color="#1A1A1A" />
 					</TouchableOpacity>
-					<TouchableOpacity style={{ marginLeft: 16 }}>
+					<TouchableOpacity style={{ marginLeft: 16 }} onPress={openArtistOptionsModal}>
 						<Ionicons name="ellipsis-horizontal" size={24} color="#1A1A1A" />
 					</TouchableOpacity>
 				</View>
@@ -216,8 +353,13 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 				<View style={styles.songsSection}>
 					<View style={styles.songsSectionHeader}>
 						<Text style={styles.songsSectionTitle}>Songs</Text>
-						<TouchableOpacity>
-							<Text style={styles.seeAllText}>See All</Text>
+						<TouchableOpacity
+							onPress={() => setShowAllSongs((prev) => !prev)}
+							disabled={relatedSongs.length <= 6}
+						>
+							<Text style={styles.seeAllText}>
+								{showAllSongs ? 'Show Less' : 'See All'}
+							</Text>
 						</TouchableOpacity>
 					</View>
 
@@ -229,7 +371,7 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 						<Text style={styles.emptyText}>No related songs found</Text>
 					) : (
 						<FlatList
-							data={relatedSongs}
+							data={visibleSongs}
 							renderItem={renderSongRow}
 							keyExtractor={(item) => item.id}
 							scrollEnabled={false}
@@ -238,6 +380,19 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 					)}
 				</View>
 			</ScrollView>
+
+			<OptionsSheetModal
+				visible={isOptionsModalVisible}
+				onClose={closeOptionsModal}
+				title={selectedOptionSong ? selectedOptionSong.title : artistName}
+				subtitle={
+					selectedOptionSong
+						? `${selectedOptionSong.artist}${selectedOptionSong.duration ? ` | ${selectedOptionSong.duration}` : ''}`
+						: `${albums} Album | ${relatedSongs.length || songs} Songs`
+				}
+				image={selectedOptionSong ? selectedOptionSong.image : artistImage}
+				options={optionActions}
+			/>
 		</SafeAreaView>
 	);
 };

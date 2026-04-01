@@ -1,11 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+	Alert,
 	FlatList,
 	Image,
 	ImageSourcePropType,
 	Modal,
 	NativeScrollEvent,
 	NativeSyntheticEvent,
+	Share,
 	ScrollView,
 	StyleSheet,
 	Text,
@@ -28,12 +30,17 @@ import {
 	searchSongs,
 	SearchResult,
 } from '../services/api';
+import { usePlayerStore } from '../store/playerStore';
+import { useLibraryStore } from '../store/libraryStore';
 
 type MusicItem = {
 	id: string;
 	title: string;
 	artist?: string;
 	image: ImageSourcePropType;
+	sourceSongId?: string;
+	url?: string;
+	duration?: string;
 };
 
 type ArtistItem = {
@@ -109,17 +116,17 @@ const defaultSongsData: SongListItem[] = [
 ];
 
 const defaultRecentlyPlayed: MusicItem[] = [
-	{ id: '1', title: 'Telugu Hits', artist: 'Various Artists', image: albumArtwork },
-	{ id: '2', title: 'Hindi Top 50', artist: 'Various Artists', image: altArtwork },
-	{ id: '3', title: 'Tamil Vibe', artist: 'Various Artists', image: artistArtwork },
-	{ id: '4', title: 'Malayalam Mix', artist: 'Various Artists', image: albumArtwork },
+	{ id: 'recent-1', sourceSongId: '1', title: 'Samajavaragamana', artist: 'Sid Sriram', image: albumArtwork },
+	{ id: 'recent-2', sourceSongId: '2', title: 'Butta Bomma', artist: 'Armaan Malik', image: altArtwork },
+	{ id: 'recent-3', sourceSongId: '3', title: 'Arabic Kuthu', artist: 'Anirudh Ravichander', image: artistArtwork },
+	{ id: 'recent-4', sourceSongId: '4', title: 'Kalaavathi', artist: 'Sid Sriram', image: albumArtwork },
 ];
 
 const defaultMostPlayed: MusicItem[] = [
-	{ id: '1', title: 'English Pop Mix', artist: 'Various Artists', image: altArtwork },
-	{ id: '2', title: 'Kannada Beats', artist: 'Various Artists', image: artistArtwork },
-	{ id: '3', title: 'Telugu Melody', artist: 'Various Artists', image: albumArtwork },
-	{ id: '4', title: 'Hindi Romance', artist: 'Various Artists', image: altArtwork },
+	{ id: 'most-3', sourceSongId: '3', title: 'Arabic Kuthu', artist: 'Anirudh Ravichander', image: artistArtwork },
+	{ id: 'most-4', sourceSongId: '4', title: 'Kalaavathi', artist: 'Sid Sriram', image: albumArtwork },
+	{ id: 'most-5', sourceSongId: '5', title: 'Belakina Kavithe', artist: 'Sanjith Hegde', image: altArtwork },
+	{ id: 'most-6', sourceSongId: '6', title: 'Malare', artist: 'Vijay Yesudas', image: artistArtwork },
 ];
 
 const defaultArtists: ArtistItem[] = [
@@ -183,9 +190,332 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
 	const [isArtistOptionsModalVisible, setArtistOptionsModalVisible] = useState(false);
 	const [isAlbumOptionsModalVisible, setAlbumOptionsModalVisible] = useState(false);
+	const [isPagerScrollEnabled, setPagerScrollEnabled] = useState(true);
 	const [selectedSong, setSelectedSong] = useState<SongListItem | null>(null);
 	const [selectedArtist, setSelectedArtist] = useState<ArtistItem | null>(null);
 	const [selectedAlbum, setSelectedAlbum] = useState<AlbumItem | null>(null);
+	const addToQueue = usePlayerStore((state) => state.addToQueue);
+	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
+	const playlists = useLibraryStore((state) => state.playlists);
+	const isFavourite = useLibraryStore((state) => state.isFavourite);
+	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
+	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
+	const primaryPlaylist = playlists[0];
+
+	const toPlayerTrack = (song: SongListItem): PlayerTrack => ({
+		id: song.id,
+		title: song.title,
+		artist: song.artist,
+		image: song.image,
+		url: song.url,
+	});
+
+	const sortSongsList = (items: SongListItem[], option: string): SongListItem[] => {
+		const sorted = [...items];
+
+		switch (option) {
+			case 'Ascending':
+				sorted.sort((a, b) => a.title.localeCompare(b.title));
+				break;
+			case 'Descending':
+				sorted.sort((a, b) => b.title.localeCompare(a.title));
+				break;
+			case 'Artist':
+				sorted.sort((a, b) => a.artist.localeCompare(b.artist));
+				break;
+			default:
+				break;
+		}
+
+		return sorted;
+	};
+
+	const sortArtistsList = (items: ArtistItem[], option: string): ArtistItem[] => {
+		const sorted = [...items];
+
+		switch (option) {
+			case 'Ascending':
+				sorted.sort((a, b) => a.name.localeCompare(b.name));
+				break;
+			case 'Descending':
+				sorted.sort((a, b) => b.name.localeCompare(a.name));
+				break;
+			default:
+				break;
+		}
+
+		return sorted;
+	};
+
+	const sortAlbumsList = (items: AlbumItem[], option: string): AlbumItem[] => {
+		const sorted = [...items];
+
+		switch (option) {
+			case 'Ascending':
+				sorted.sort((a, b) => a.title.localeCompare(b.title));
+				break;
+			case 'Descending':
+				sorted.sort((a, b) => b.title.localeCompare(a.title));
+				break;
+			case 'Artist':
+				sorted.sort((a, b) => a.artist.localeCompare(b.artist));
+				break;
+			case 'Year':
+				sorted.sort((a, b) => b.year - a.year);
+				break;
+			default:
+				break;
+		}
+
+		return sorted;
+	};
+
+	const applySortForActiveTab = (option: string) => {
+		setCurrentSort(option);
+
+		if (activeTab === 'Songs') {
+			setSongsData((prev) => sortSongsList(prev, option));
+		}
+
+		if (activeTab === 'Artists') {
+			setArtistsData((prev) => sortArtistsList(prev, option));
+		}
+
+		if (activeTab === 'Albums') {
+			setAlbumsData((prev) => sortAlbumsList(prev, option));
+		}
+
+		setSortModalVisible(false);
+	};
+
+	const findSongByArtist = (artistName: string): SongListItem | undefined =>
+		songsData.find((song) =>
+			song.artist.toLowerCase().includes(artistName.toLowerCase()),
+		);
+
+	const findSongByAlbum = (album: AlbumItem): SongListItem | undefined => {
+		const albumTitleToken = album.title.split(' ')[0]?.toLowerCase() || '';
+
+		return songsData.find((song) =>
+			song.artist.toLowerCase().includes(album.artist.toLowerCase()) ||
+			song.title.toLowerCase().includes(albumTitleToken),
+		);
+	};
+
+	const closeSongOptions = () => {
+		setOptionsModalVisible(false);
+		setSelectedSong(null);
+	};
+
+	const closeArtistOptions = () => {
+		setArtistOptionsModalVisible(false);
+		setSelectedArtist(null);
+	};
+
+	const closeAlbumOptions = () => {
+		setAlbumOptionsModalVisible(false);
+		setSelectedAlbum(null);
+	};
+
+	const handleHorizontalListScrollStart = () => {
+		setPagerScrollEnabled(false);
+	};
+
+	const handleHorizontalListScrollEnd = () => {
+		setPagerScrollEnabled(true);
+	};
+
+	const handleSongOptionPress = async (option: string) => {
+		if (!selectedSong) {
+			return;
+		}
+
+		const songTrack = toPlayerTrack(selectedSong);
+
+		switch (option) {
+			case 'Play Next':
+				addToQueueNext(songTrack);
+				break;
+			case 'Add to Playing Queue':
+				addToQueue(songTrack);
+				break;
+			case 'Add to Playlist':
+				if (primaryPlaylist) {
+					addTrackToPlaylist(primaryPlaylist.id, songTrack);
+				}
+				break;
+			case 'Go to Album': {
+				const albumMatch = albumsData.find((album) =>
+					album.artist.toLowerCase().includes(selectedSong.artist.toLowerCase()),
+				);
+
+				if (albumMatch) {
+					onAlbumPress?.({
+						...albumMatch,
+						totalDuration: albumMatch.totalDuration || '01:20:38 mins',
+					});
+				}
+
+				break;
+			}
+			case 'Go to Artist': {
+				const artistMatch = artistsData.find((artist) =>
+					selectedSong.artist.toLowerCase().includes(artist.name.toLowerCase()) ||
+					artist.name.toLowerCase().includes(selectedSong.artist.toLowerCase()),
+				);
+
+				if (artistMatch) {
+					onArtistPress?.({
+						...artistMatch,
+						totalDuration: artistMatch.totalDuration || '01:25:43 mins',
+					});
+				}
+
+				break;
+			}
+			case 'Details':
+				Alert.alert(
+					'Song Details',
+					`${selectedSong.title}\n${selectedSong.artist}\n${selectedSong.duration}`,
+				);
+				break;
+			case 'Set as Ringtone':
+				Alert.alert('Ringtone', 'Ringtone support will be added soon.');
+				break;
+			case 'Add to Blacklist':
+				Alert.alert('Blacklist', `${selectedSong.title} added to blacklist.`);
+				break;
+			case 'Share':
+				await Share.share({
+					message: `${selectedSong.title} by ${selectedSong.artist}`,
+				});
+				break;
+			case 'Delete from Device':
+				setSongsData((prev) => prev.filter((song) => song.id !== selectedSong.id));
+				setRecentlyPlayed((prev) =>
+					prev.filter((song) => song.sourceSongId !== selectedSong.id),
+				);
+				setMostPlayed((prev) =>
+					prev.filter((song) => song.sourceSongId !== selectedSong.id),
+				);
+				if (playingSongId === selectedSong.id) {
+					setPlayingSongId('');
+				}
+				break;
+			default:
+				break;
+		}
+
+		closeSongOptions();
+	};
+
+	const handleArtistOptionPress = async (option: string) => {
+		if (!selectedArtist) {
+			return;
+		}
+
+		const artistSongs = songsData.filter((song) =>
+			song.artist.toLowerCase().includes(selectedArtist.name.toLowerCase()),
+		);
+		const selectedArtistSong = artistSongs[0] || findSongByArtist(selectedArtist.name);
+
+		switch (option) {
+			case 'Play':
+				if (selectedArtistSong && onPlaySong) {
+					setPlayingSongId(selectedArtistSong.id);
+					onPlaySong(toPlayerTrack(selectedArtistSong), queueFromSongs());
+				}
+				break;
+			case 'Play Next':
+				if (selectedArtistSong) {
+					addToQueueNext(toPlayerTrack(selectedArtistSong));
+				}
+				break;
+			case 'Add to Playing Queue':
+				if (selectedArtistSong) {
+					addToQueue(toPlayerTrack(selectedArtistSong));
+				}
+				break;
+			case 'Add to Playlist':
+				if (primaryPlaylist) {
+					artistSongs.forEach((song) => {
+						addTrackToPlaylist(primaryPlaylist.id, toPlayerTrack(song));
+					});
+				}
+				break;
+			case 'Share':
+				await Share.share({
+					message: `${selectedArtist.name} on Lokal Music Player`,
+				});
+				break;
+			default:
+				break;
+		}
+
+		closeArtistOptions();
+	};
+
+	const handleAlbumOptionPress = async (option: string) => {
+		if (!selectedAlbum) {
+			return;
+		}
+
+		const selectedAlbumSong = findSongByAlbum(selectedAlbum);
+
+		switch (option) {
+			case 'Play':
+				if (selectedAlbumSong && onPlaySong) {
+					setPlayingSongId(selectedAlbumSong.id);
+					onPlaySong(toPlayerTrack(selectedAlbumSong), queueFromSongs());
+				}
+				break;
+			case 'Play Next':
+				if (selectedAlbumSong) {
+					addToQueueNext(toPlayerTrack(selectedAlbumSong));
+				}
+				break;
+			case 'Add to Playing Queue':
+				if (selectedAlbumSong) {
+					addToQueue(toPlayerTrack(selectedAlbumSong));
+				}
+				break;
+			case 'Add to Playlist':
+				if (primaryPlaylist && selectedAlbumSong) {
+					addTrackToPlaylist(primaryPlaylist.id, toPlayerTrack(selectedAlbumSong));
+				}
+				break;
+			case 'Go to Artist': {
+				const artistMatch = artistsData.find((artist) =>
+					selectedAlbum.artist.toLowerCase().includes(artist.name.toLowerCase()) ||
+					artist.name.toLowerCase().includes(selectedAlbum.artist.toLowerCase()),
+				);
+
+				if (artistMatch) {
+					onArtistPress?.({
+						...artistMatch,
+						totalDuration: artistMatch.totalDuration || '01:25:43 mins',
+					});
+				}
+
+				break;
+			}
+			case 'Details':
+				Alert.alert(
+					'Album Details',
+					`${selectedAlbum.title}\n${selectedAlbum.artist}\n${selectedAlbum.year} • ${selectedAlbum.songs} songs`,
+				);
+				break;
+			case 'Share':
+				await Share.share({
+					message: `${selectedAlbum.title} by ${selectedAlbum.artist}`,
+				});
+				break;
+			default:
+				break;
+		}
+
+		closeAlbumOptions();
+	};
 
 	useEffect(() => {
 		let mounted = true;
@@ -259,19 +589,25 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					setSongsData(mergedSongs);
 					setRecentlyPlayed(
 						mergedSongs.slice(0, 8).map((song) => ({
-							id: song.id,
+							id: `recent-${song.id}`,
+							sourceSongId: song.id,
 							title: song.title,
 							artist: song.artist,
 							image: song.image,
+							url: song.url,
+							duration: song.duration,
 						})),
 					);
 
 					setMostPlayed(
 						mergedSongs.slice(8, 16).map((song) => ({
 							id: `most-${song.id}`,
+							sourceSongId: song.id,
 							title: song.title,
 							artist: song.artist,
 							image: song.image,
+							url: song.url,
+							duration: song.duration,
 						})),
 					);
 				}
@@ -306,6 +642,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	};
 
 	const handleChangeTab = (tab: HomeTab, animated = true) => {
+		setPagerScrollEnabled(true);
 		setActiveTab(tab);
 		scrollToTab(tab, animated);
 	};
@@ -315,6 +652,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	};
 
 	const handlePagerEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+		setPagerScrollEnabled(true);
 		const offsetX = event.nativeEvent.contentOffset.x;
 		const nextIndex = Math.round(offsetX / width);
 		const nextTab = tabs[nextIndex];
@@ -328,8 +666,47 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 		scrollToTab(activeTab, false);
 	}, [width]);
 
+	const resolveMusicItemToSong = (item: MusicItem): SongListItem | undefined =>
+		songsData.find((song) =>
+			song.id === item.sourceSongId ||
+			song.id === item.id ||
+			song.title.toLowerCase() === item.title.toLowerCase(),
+		);
+
+	const handlePlayMusicCard = (item: MusicItem) => {
+		const matchedSong = resolveMusicItemToSong(item);
+
+		if (matchedSong?.url) {
+			const playableQueue = queueFromSongs().filter((track) => Boolean(track.url));
+			setPlayingSongId(matchedSong.id);
+			onPlaySong?.(
+				toPlayerTrack(matchedSong),
+				playableQueue.length ? playableQueue : [toPlayerTrack(matchedSong)],
+			);
+			return;
+		}
+
+		const fallbackUrl = item.url || matchedSong?.url;
+
+		if (!fallbackUrl) {
+			Alert.alert('Track unavailable', 'Unable to play this item right now.');
+			return;
+		}
+
+		const fallbackTrack: PlayerTrack = {
+			id: matchedSong?.id || item.sourceSongId || item.id,
+			title: matchedSong?.title || item.title,
+			artist: matchedSong?.artist || item.artist || 'Unknown Artist',
+			image: matchedSong?.image || item.image,
+			url: fallbackUrl,
+		};
+
+		setPlayingSongId(fallbackTrack.id);
+		onPlaySong?.(fallbackTrack, [fallbackTrack]);
+	};
+
 	const renderSongCard = ({ item }: { item: MusicItem }) => (
-		<TouchableOpacity style={styles.songCard}>
+		<TouchableOpacity style={styles.songCard} onPress={() => handlePlayMusicCard(item)}>
 			<Image source={item.image} style={styles.songImage} />
 			<Text style={styles.songTitle} numberOfLines={2}>
 				{item.title}
@@ -508,6 +885,13 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					renderItem={renderSongCard}
 					keyExtractor={(item) => item.id}
 					horizontal
+					nestedScrollEnabled
+					onTouchStart={handleHorizontalListScrollStart}
+					onScrollBeginDrag={handleHorizontalListScrollStart}
+					onScrollEndDrag={handleHorizontalListScrollEnd}
+					onMomentumScrollEnd={handleHorizontalListScrollEnd}
+					onTouchEnd={handleHorizontalListScrollEnd}
+					onTouchCancel={handleHorizontalListScrollEnd}
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={styles.listContent}
 				/>
@@ -523,6 +907,13 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					renderItem={renderSongCard}
 					keyExtractor={(item) => item.id}
 					horizontal
+					nestedScrollEnabled
+					onTouchStart={handleHorizontalListScrollStart}
+					onScrollBeginDrag={handleHorizontalListScrollStart}
+					onScrollEndDrag={handleHorizontalListScrollEnd}
+					onMomentumScrollEnd={handleHorizontalListScrollEnd}
+					onTouchEnd={handleHorizontalListScrollEnd}
+					onTouchCancel={handleHorizontalListScrollEnd}
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={styles.listContent}
 				/>
@@ -538,6 +929,13 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					renderItem={renderArtistCard}
 					keyExtractor={(item) => item.id}
 					horizontal
+					nestedScrollEnabled
+					onTouchStart={handleHorizontalListScrollStart}
+					onScrollBeginDrag={handleHorizontalListScrollStart}
+					onScrollEndDrag={handleHorizontalListScrollEnd}
+					onMomentumScrollEnd={handleHorizontalListScrollEnd}
+					onTouchEnd={handleHorizontalListScrollEnd}
+					onTouchCancel={handleHorizontalListScrollEnd}
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={styles.listContent}
 				/>
@@ -553,6 +951,13 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					renderItem={renderAlbumCard}
 					keyExtractor={(item) => item.id}
 					horizontal
+					nestedScrollEnabled
+					onTouchStart={handleHorizontalListScrollStart}
+					onScrollBeginDrag={handleHorizontalListScrollStart}
+					onScrollEndDrag={handleHorizontalListScrollEnd}
+					onMomentumScrollEnd={handleHorizontalListScrollEnd}
+					onTouchEnd={handleHorizontalListScrollEnd}
+					onTouchCancel={handleHorizontalListScrollEnd}
 					showsHorizontalScrollIndicator={false}
 					contentContainerStyle={styles.listContent}
 				/>
@@ -614,7 +1019,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
 				>
-					<Text style={styles.sortButtonText}>Ascending</Text>
+					<Text style={styles.sortButtonText}>{currentSort}</Text>
 					<Ionicons name="swap-vertical" size={22} color={colors.primary} />
 				</TouchableOpacity>
 			</View>
@@ -639,6 +1044,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 			<ScrollView
 				ref={pagerRef}
 				horizontal
+				scrollEnabled={isPagerScrollEnabled}
 				pagingEnabled
 				directionalLockEnabled
 				decelerationRate="fast"
@@ -673,10 +1079,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 								<TouchableOpacity
 									key={option}
 									style={styles.sortOptionRow}
-									onPress={() => {
-										setCurrentSort(option);
-										setSortModalVisible(false);
-									}}
+									onPress={() => applySortForActiveTab(option)}
 								>
 									<Text style={styles.sortOptionText}>{option}</Text>
 									<View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
@@ -693,12 +1096,12 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				visible={isOptionsModalVisible}
 				transparent
 				animationType="slide"
-				onRequestClose={() => setOptionsModalVisible(false)}
+				onRequestClose={closeSongOptions}
 			>
 				<TouchableOpacity
 					style={styles.modalOverlayDark}
 					activeOpacity={1}
-					onPress={() => setOptionsModalVisible(false)}
+					onPress={closeSongOptions}
 				>
 					<View style={styles.optionsSheet}>
 						<View style={styles.sheetHandle} />
@@ -714,7 +1117,15 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 										{selectedSong.artist} {'  |  '} {selectedSong.duration}
 									</Text>
 								</View>
-								<Ionicons name="heart-outline" size={34} color="#1A1A1A" />
+								<TouchableOpacity
+									onPress={() => toggleFavourite(toPlayerTrack(selectedSong))}
+								>
+									<Ionicons
+										name={isFavourite(selectedSong.id) ? 'heart' : 'heart-outline'}
+										size={34}
+										color={isFavourite(selectedSong.id) ? '#F04438' : '#1A1A1A'}
+									/>
+								</TouchableOpacity>
 							</View>
 						)}
 
@@ -725,7 +1136,9 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 								<TouchableOpacity
 									key={option}
 									style={styles.sheetOptionRow}
-									onPress={() => setOptionsModalVisible(false)}
+									onPress={() => {
+										void handleSongOptionPress(option);
+									}}
 								>
 									<Text style={styles.sheetOptionText}>{option}</Text>
 								</TouchableOpacity>
@@ -739,12 +1152,12 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				visible={isArtistOptionsModalVisible}
 				transparent
 				animationType="slide"
-				onRequestClose={() => setArtistOptionsModalVisible(false)}
+				onRequestClose={closeArtistOptions}
 			>
 				<TouchableOpacity
 					style={styles.modalOverlayDark}
 					activeOpacity={1}
-					onPress={() => setArtistOptionsModalVisible(false)}
+					onPress={closeArtistOptions}
 				>
 					<View style={styles.optionsSheet}>
 						<View style={styles.sheetHandle} />
@@ -770,7 +1183,9 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 								<TouchableOpacity
 									key={option}
 									style={styles.sheetOptionRow}
-									onPress={() => setArtistOptionsModalVisible(false)}
+									onPress={() => {
+										void handleArtistOptionPress(option);
+									}}
 								>
 									<Text style={styles.sheetOptionText}>{option}</Text>
 								</TouchableOpacity>
@@ -784,12 +1199,12 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				visible={isAlbumOptionsModalVisible}
 				transparent
 				animationType="slide"
-				onRequestClose={() => setAlbumOptionsModalVisible(false)}
+				onRequestClose={closeAlbumOptions}
 			>
 				<TouchableOpacity
 					style={styles.modalOverlayDark}
 					activeOpacity={1}
-					onPress={() => setAlbumOptionsModalVisible(false)}
+					onPress={closeAlbumOptions}
 				>
 					<View style={styles.optionsSheet}>
 						<View style={styles.sheetHandle} />
@@ -818,7 +1233,9 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 								<TouchableOpacity
 									key={option}
 									style={styles.sheetOptionRow}
-									onPress={() => setAlbumOptionsModalVisible(false)}
+									onPress={() => {
+										void handleAlbumOptionPress(option);
+									}}
 								>
 									<Text style={styles.sheetOptionText}>{option}</Text>
 								</TouchableOpacity>

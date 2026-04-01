@@ -18,11 +18,13 @@ export default function App() {
   const isPlaying = usePlayerStore((state) => state.isPlaying);
   const positionMillis = usePlayerStore((state) => state.positionMillis);
   const durationMillis = usePlayerStore((state) => state.durationMillis);
+  const playbackRate = usePlayerStore((state) => state.playbackRate);
   const playSong = usePlayerStore((state) => state.playSong);
   const togglePlay = usePlayerStore((state) => state.togglePlay);
   const playNext = usePlayerStore((state) => state.playNext);
   const playPrevious = usePlayerStore((state) => state.playPrevious);
   const seekTo = usePlayerStore((state) => state.seekTo);
+  const setPlaybackRate = usePlayerStore((state) => state.setPlaybackRate);
   const isExpanded = sheetIndex === 1;
 
   const snapPoints = useMemo(() => [110, '100%'], []);
@@ -64,6 +66,10 @@ export default function App() {
 
   const handleSeek = (nextPositionMillis: number) => {
     seekTo(nextPositionMillis);
+  };
+
+  const handleChangePlaybackRate = (nextRate: number) => {
+    setPlaybackRate(nextRate);
   };
 
   return (
@@ -117,6 +123,8 @@ export default function App() {
                     onNext={handleNext}
                     onPrevious={handlePrevious}
                     onSeek={handleSeek}
+                    playbackRate={playbackRate}
+                    onChangePlaybackRate={handleChangePlaybackRate}
                   />
                 )}
               </BottomSheetView>

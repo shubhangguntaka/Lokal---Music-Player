@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+	Alert,
 	Animated,
 	Easing,
 	Image,
 	PanResponder,
+	Share,
 	ScrollView,
 	StyleProp,
 	StyleSheet,
@@ -18,6 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { PlayerTrack } from '../components/Player';
+import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
 
 type NowPlayingScreenProps = {
 	track: PlayerTrack;
@@ -29,7 +32,11 @@ type NowPlayingScreenProps = {
 	onNext: () => void;
 	onPrevious: () => void;
 	onSeek: (positionMillis: number) => void;
+	playbackRate?: number;
+	onChangePlaybackRate?: (playbackRate: number) => void;
 };
+
+type PlayerOptionsSheet = 'none' | 'speed' | 'timer' | 'track' | 'cast';
 
 const formatTime = (seconds: number) => {
 	const mins = Math.floor(seconds / 60);
@@ -124,6 +131,8 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	onNext,
 	onPrevious,
 	onSeek,
+	playbackRate = 1,
+	onChangePlaybackRate,
 }) => {
 	const { width } = useWindowDimensions();
 	const elapsedSeconds = Math.floor(positionMillis / 1000);
@@ -131,10 +140,46 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	const progress = totalSeconds > 0 ? elapsedSeconds / totalSeconds : 0;
 	const [isScrubbing, setIsScrubbing] = useState(false);
 	const [scrubProgress, setScrubProgress] = useState(progress);
+	const [showLyrics, setShowLyrics] = useState(false);
+	const [sleepTimerLabel, setSleepTimerLabel] = useState<string | null>(null);
+	const [activeOptionsSheet, setActiveOptionsSheet] = useState<PlayerOptionsSheet>('none');
 	const trackWidthRef = useRef(0);
- 	const artworkSize = Math.min(width - 34, 340);
+	const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const isPlayingRef = useRef(isPlaying);
+	const artworkSize = Math.min(width - 34, 340);
 
 	const displayProgress = isScrubbing ? scrubProgress : progress;
+
+	const lyricsLines = useMemo(
+		() => [
+			`${track.title}`,
+			`${track.artist}`,
+			'Lost in rhythm, one beat at a time',
+			'Let the melody carry the night',
+			'Close your eyes and sing along',
+			'This moment is yours',
+		],
+		[track.artist, track.title],
+	);
+
+	useEffect(() => {
+		if (!isScrubbing) {
+			setScrubProgress(progress);
+		}
+	}, [isScrubbing, progress]);
+
+	useEffect(() => {
+		isPlayingRef.current = isPlaying;
+	}, [isPlaying]);
+
+	useEffect(() => {
+		return () => {
+			if (sleepTimerRef.current) {
+				clearTimeout(sleepTimerRef.current);
+				sleepTimerRef.current = null;
+			}
+		};
+	}, []);
 
 	const updateScrub = (locationX: number) => {
 		const trackWidth = trackWidthRef.current;
@@ -181,6 +226,135 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 		[durationMillis, onSeek],
 	);
 
+	const seekBySeconds = (seconds: number) => {
+		if (!durationMillis) {
+			return;
+		}
+
+		const nextPosition = Math.max(
+			0,
+			Math.min(positionMillis + (seconds * 1000), durationMillis),
+		);
+
+		onSeek(nextPosition);
+	};
+
+	const clearSleepTimer = () => {
+		if (sleepTimerRef.current) {
+			clearTimeout(sleepTimerRef.current);
+			sleepTimerRef.current = null;
+		}
+		setSleepTimerLabel(null);
+	};
+
+	const startSleepTimer = (minutes: number) => {
+		clearSleepTimer();
+		setSleepTimerLabel(`${minutes}m`);
+
+		sleepTimerRef.current = setTimeout(() => {
+			sleepTimerRef.current = null;
+			setSleepTimerLabel(null);
+
+			if (isPlayingRef.current) {
+				onTogglePlay();
+				Alert.alert('Sleep Timer', 'Playback paused.');
+				return;
+			}
+
+			Alert.alert('Sleep Timer', 'Timer ended.');
+		}, minutes * 60 * 1000);
+	};
+
+	const closeOptionsSheet = () => {
+		setActiveOptionsSheet('none');
+	};
+
+	const openSpeedMenu = () => {
+		setActiveOptionsSheet('speed');
+	};
+
+	const openSleepTimerMenu = () => {
+		setActiveOptionsSheet('timer');
+	};
+
+	const handleShareTrack = async () => {
+		await Share.share({
+			message: `${track.title} - ${track.artist}`,
+		});
+	};
+
+	const handleCast = () => {
+		setActiveOptionsSheet('cast');
+	};
+
+	const openTrackActions = () => {
+		setActiveOptionsSheet('track');
+	};
+
+	const speedSheetOptions: OptionSheetAction[] = [0.75, 1, 1.25, 1.5, 2].map((rate) => ({
+		key: `speed-${rate}`,
+		label: `${rate.toFixed(2)}x${rate === playbackRate ? ' (Current)' : ''}`,
+		onPress: () => onChangePlaybackRate?.(rate),
+	}));
+
+	const timerSheetOptions: OptionSheetAction[] = [
+		{ key: 'timer-5', label: '5 min', onPress: () => startSleepTimer(5) },
+		{ key: 'timer-10', label: '10 min', onPress: () => startSleepTimer(10) },
+		{ key: 'timer-15', label: '15 min', onPress: () => startSleepTimer(15) },
+		{ key: 'timer-30', label: '30 min', onPress: () => startSleepTimer(30) },
+		{ key: 'timer-off', label: 'Turn Off', onPress: clearSleepTimer },
+	];
+
+	const trackSheetOptions: OptionSheetAction[] = [
+		{ key: 'share', label: 'Share', onPress: () => void handleShareTrack() },
+		{
+			key: 'details',
+			label: 'Details',
+			onPress: () => {
+				Alert.alert(
+					'Track Details',
+					`${track.title}\n${track.artist}\n${formatTime(elapsedSeconds)} / ${formatTime(totalSeconds)}\nSpeed: ${playbackRate.toFixed(2)}x`,
+				);
+			},
+		},
+		{
+			key: 'lyrics-toggle',
+			label: showLyrics ? 'Hide Lyrics' : 'Show Lyrics',
+			onPress: () => setShowLyrics((prev) => !prev),
+		},
+	];
+
+	const castSheetOptions: OptionSheetAction[] = [
+		{ key: 'cast-info', label: 'Casting support will be added soon.', onPress: () => undefined },
+	];
+
+	const activeSheetOptions =
+		activeOptionsSheet === 'speed'
+			? speedSheetOptions
+			: activeOptionsSheet === 'timer'
+				? timerSheetOptions
+				: activeOptionsSheet === 'track'
+					? trackSheetOptions
+					: castSheetOptions;
+
+	const activeSheetTitle =
+		activeOptionsSheet === 'speed'
+			? 'Playback Speed'
+			: activeOptionsSheet === 'timer'
+				? 'Sleep Timer'
+				: activeOptionsSheet === 'track'
+					? track.title
+					: 'Cast';
+
+	const activeSheetSubtitle =
+		activeOptionsSheet === 'speed'
+			? `Current: ${playbackRate.toFixed(2)}x`
+			: activeOptionsSheet === 'timer'
+				? sleepTimerLabel ? `Active: ${sleepTimerLabel}` : 'Choose timer duration'
+				: activeOptionsSheet === 'track'
+					? track.artist
+					: 'Devices';
+
 	return (
 		<SafeAreaView style={styles.container}>
 			<ScrollView
@@ -193,7 +367,7 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 					<TouchableOpacity onPress={onClose} style={styles.headerIconButton}>
 						<Ionicons name="chevron-back" size={30} color="#1A1A1A" />
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.headerIconButton}>
+					<TouchableOpacity style={styles.headerIconButton} onPress={openTrackActions}>
 						<Ionicons name="ellipsis-horizontal-circle-outline" size={34} color="#1A1A1A" />
 					</TouchableOpacity>
 				</View>
@@ -230,7 +404,7 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 					<TouchableOpacity style={styles.secondaryControl} onPress={onPrevious}>
 						<Ionicons name="play-skip-back" size={40} color="#111111" />
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.secondaryControl}>
+					<TouchableOpacity style={styles.secondaryControl} onPress={() => seekBySeconds(-10)}>
 						<Feather name="rotate-ccw" size={34} color="#111111" />
 						<Text style={styles.tenLabel}>10</Text>
 					</TouchableOpacity>
@@ -241,7 +415,7 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 							color="#FFFFFF"
 						/>
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.secondaryControl}>
+					<TouchableOpacity style={styles.secondaryControl} onPress={() => seekBySeconds(10)}>
 						<Feather name="rotate-cw" size={34} color="#111111" />
 						<Text style={styles.tenLabel}>10</Text>
 					</TouchableOpacity>
@@ -251,17 +425,54 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 				</View>
 
 				<View style={styles.bottomActions}>
-					<Ionicons name="speedometer-outline" size={34} color="#111111" />
-					<Ionicons name="timer-outline" size={34} color="#111111" />
-					<Ionicons name="tv-outline" size={34} color="#111111" />
-					<Ionicons name="ellipsis-vertical" size={30} color="#111111" />
+					<TouchableOpacity style={styles.bottomActionButton} onPress={openSpeedMenu}>
+						<Ionicons name="speedometer-outline" size={28} color="#111111" />
+						<Text style={styles.bottomActionLabel}>{playbackRate.toFixed(2)}x</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.bottomActionButton} onPress={openSleepTimerMenu}>
+						<Ionicons name="timer-outline" size={28} color="#111111" />
+						<Text style={styles.bottomActionLabel}>{sleepTimerLabel || 'Timer'}</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.bottomActionButton} onPress={handleCast}>
+						<Ionicons name="tv-outline" size={28} color="#111111" />
+						<Text style={styles.bottomActionLabel}>Cast</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.bottomActionButton} onPress={openTrackActions}>
+						<Ionicons name="ellipsis-vertical" size={26} color="#111111" />
+						<Text style={styles.bottomActionLabel}>More</Text>
+					</TouchableOpacity>
 				</View>
 
-				<View style={styles.lyricsArea}>
-					<Ionicons name="chevron-up" size={28} color="#1A1A1A" />
-					<Text style={styles.lyricsText}>Lyrics</Text>
-				</View>
+				<TouchableOpacity
+					style={styles.lyricsArea}
+					onPress={() => setShowLyrics((prev) => !prev)}
+				>
+					<Ionicons name={showLyrics ? 'chevron-down' : 'chevron-up'} size={28} color="#1A1A1A" />
+					<Text style={styles.lyricsText}>{showLyrics ? 'Hide Lyrics' : 'Lyrics'}</Text>
+				</TouchableOpacity>
+
+				{showLyrics && (
+					<View style={styles.lyricsPanel}>
+						{lyricsLines.map((line, index) => (
+							<Text
+								key={`${track.id}-${index}`}
+								style={index === 0 ? styles.lyricsLineActive : styles.lyricsLine}
+							>
+								{line}
+							</Text>
+						))}
+					</View>
+				)}
 			</ScrollView>
+
+			<OptionsSheetModal
+				visible={activeOptionsSheet !== 'none'}
+				onClose={closeOptionsSheet}
+				title={activeSheetTitle}
+				subtitle={activeSheetSubtitle}
+				image={activeOptionsSheet === 'track' ? track.image : undefined}
+				options={activeSheetOptions}
+			/>
 		</SafeAreaView>
 	);
 };
@@ -402,10 +613,22 @@ const styles = StyleSheet.create({
 	},
 	bottomActions: {
 		marginTop: 28,
-		paddingHorizontal: 14,
+		paddingHorizontal: 4,
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
+	},
+	bottomActionButton: {
+		width: 72,
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 4,
+	},
+	bottomActionLabel: {
+		marginTop: 3,
+		fontSize: 11,
+		fontWeight: '600',
+		color: '#2A2A2A',
 	},
 	lyricsArea: {
 		marginTop: 26,
@@ -416,6 +639,27 @@ const styles = StyleSheet.create({
 		fontSize: 22,
 		fontWeight: '500',
 		color: '#1A1A1A',
+	},
+	lyricsPanel: {
+		marginTop: 14,
+		backgroundColor: '#FFFFFF',
+		borderRadius: 18,
+		paddingVertical: 14,
+		paddingHorizontal: 14,
+		gap: 8,
+	},
+	lyricsLine: {
+		fontSize: 16,
+		lineHeight: 24,
+		color: '#555555',
+		textAlign: 'center',
+	},
+	lyricsLineActive: {
+		fontSize: 18,
+		lineHeight: 26,
+		color: '#1A1A1A',
+		fontWeight: '700',
+		textAlign: 'center',
 	},
 });
 
