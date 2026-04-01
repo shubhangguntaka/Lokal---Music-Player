@@ -307,8 +307,6 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		paddingHorizontal: 16,
 		paddingVertical: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: '#ECECEC',
 	},
 	searchInputContainer: {
 		flex: 1,
@@ -328,12 +326,11 @@ const styles = StyleSheet.create({
 		padding: 0,
 	},
 	filterContainer: {
-		borderBottomWidth: 1,
-		borderBottomColor: '#ECECEC',
+		maxHeight: 40,
+		top: 4,
 	},
 	filterContent: {
 		paddingHorizontal: 16,
-		paddingVertical: 12,
 		gap: 10,
 	},
 	filterButton: {

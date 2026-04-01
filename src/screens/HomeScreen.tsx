@@ -1061,13 +1061,13 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	sheetSongTitle: {
-		fontSize: 19 / 2,
+		fontSize: 32 / 2,
 		fontWeight: '700',
 		color: '#171717',
 		marginBottom: 2,
 	},
 	sheetSongMeta: {
-		fontSize: 16 / 2,
+		fontSize: 22 / 2,
 		color: '#6A6A6A',
 	},
 	sheetDivider: {
@@ -1079,7 +1079,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 13,
 	},
 	sheetOptionText: {
-		fontSize: 21 / 2,
+		fontSize: 28 / 2,
 		fontWeight: '500',
 		color: '#1E1E1E',
 	},
@@ -1166,7 +1166,7 @@ const styles = StyleSheet.create({
 		flex: 1,
 	},
 	sheetAlbumTitle: {
-		fontSize: 16,
+		fontSize: 24,
 		fontWeight: '700',
 		color: '#171717',
 		marginBottom: 2,
