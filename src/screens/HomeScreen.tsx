@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	FlatList,
 	Image,
@@ -17,6 +17,14 @@ import SectionHeader from '../components/SectionHeader';
 import TabBar from '../components/TabBar';
 import { colors } from '../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+	formatDuration,
+	getArtistName,
+	searchAlbums,
+	searchArtists,
+	searchSongs,
+	SearchResult,
+} from '../services/api';
 
 type MusicItem = {
 	id: string;
@@ -61,47 +69,72 @@ const albumArtwork = require('../../assets/icon.png');
 const artistArtwork = require('../../assets/adaptive-icon.png');
 const altArtwork = require('../../assets/splash-icon.png');
 
-const recentlyPlayed: MusicItem[] = [
-	{ id: '1', title: 'Shades of Love', artist: 'Ania Szarmach', image: albumArtwork },
-	{ id: '2', title: 'Without You', artist: 'The Kid LAROI', image: altArtwork },
-	{ id: '3', title: 'Save Your Tears', artist: 'The Weeknd', image: albumArtwork },
-	{ id: '4', title: 'Heat Waves', artist: 'Glass Animals', image: altArtwork },
+const LANGUAGE_QUERIES = [
+	'Telugu hit songs',
+	'Hindi hit songs',
+	'English hit songs',
+	'Tamil hit songs',
+	'Kannada hit songs',
+	'Malayalam hit songs',
 ];
 
-const artists: ArtistItem[] = [
-	{ id: '1', name: 'Ariana Grande', image: artistArtwork, albums: 1, songs: 20 },
-	{ id: '2', name: 'The Weeknd', image: albumArtwork, albums: 1, songs: 16 },
-	{ id: '3', name: 'Acidrap', image: altArtwork, albums: 2, songs: 28 },
-	{ id: '4', name: 'Ania Szarmach', image: albumArtwork, albums: 1, songs: 12 },
-	{ id: '5', name: 'Troye Sivan', image: altArtwork, albums: 1, songs: 14 },
-	{ id: '6', name: 'Ryan Jones', image: artistArtwork, albums: 2, songs: 24 },
+const FEATURED_ARTIST_NAMES = [
+	'S. Thaman',
+	'Anirudh Ravichander',
+	'M.M. Keeravani',
+	'Sai Abhyankkar',
+	'Sid Sriram',
+	'Devi Sri Prasad',
+	'Yuvan Shankar Raja',
+	'G. V. Prakash Kumar',
 ];
 
-const mostPlayed: MusicItem[] = [
-	{ id: '1', title: 'Photograph', artist: 'Ed Sheeran', image: altArtwork },
-	{ id: '2', title: 'Night Drive', artist: 'LANY', image: albumArtwork },
-	{ id: '3', title: 'Somebody Else', artist: 'The 1975', image: altArtwork },
-	{ id: '4', title: 'Afterglow', artist: 'Taylor Swift', image: albumArtwork },
+const TELUGU_ESSENTIALS_ALBUM_QUERIES = [
+	'Telugu Essentials',
+	'Telugu Love Essentials',
+	'Telugu Dance Essentials',
+	'Telugu Melody Essentials',
 ];
 
-const songsData: SongListItem[] = [
-	{ id: '1', title: 'Starboy', artist: 'The Weeknd, Daft Punk', duration: '03:50 mins', image: albumArtwork, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3' },
-	{ id: '2', title: 'Disaster', artist: 'Conan Gray', duration: '03:58 mins', image: altArtwork, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3' },
-	{ id: '3', title: 'HANDSOME', artist: 'Warren Hue', duration: '04:45 mins', image: artistArtwork, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3' },
-	{ id: '4', title: 'Sharks', artist: 'Imagine Dragons', duration: '05:23 mins', image: albumArtwork, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3' },
-	{ id: '5', title: 'Fly Me To The Sun', artist: 'Romantic Echoes', duration: '04:20 mins', image: artistArtwork, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3' },
-	{ id: '6', title: 'The Bended Man', artist: 'Sunwich', duration: '03:48 mins', image: altArtwork, url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3' },
+const defaultSongsData: SongListItem[] = [
+	{ id: '1', title: 'Samajavaragamana', artist: 'Sid Sriram', duration: '03:48 mins', image: albumArtwork },
+	{ id: '2', title: 'Butta Bomma', artist: 'Armaan Malik', duration: '03:18 mins', image: altArtwork },
+	{ id: '3', title: 'Arabic Kuthu', artist: 'Anirudh Ravichander', duration: '04:39 mins', image: artistArtwork },
+	{ id: '4', title: 'Kalaavathi', artist: 'Sid Sriram', duration: '04:02 mins', image: albumArtwork },
+	{ id: '5', title: 'Belakina Kavithe', artist: 'Sanjith Hegde', duration: '03:39 mins', image: altArtwork },
+	{ id: '6', title: 'Malare', artist: 'Vijay Yesudas', duration: '05:16 mins', image: artistArtwork },
 ];
 
-const albumsData: AlbumItem[] = [
-	{ id: '1', title: 'Dawn FM', artist: 'The Weeknd', year: 2022, songs: 16, image: albumArtwork },
-	{ id: '2', title: 'Sweetener', artist: 'Ariana Grande', year: 2021, songs: 16, image: altArtwork },
-	{ id: '3', title: 'First Impact', artist: 'Treasure', year: 2021, songs: 14, image: artistArtwork },
-	{ id: '4', title: 'Pain (Official)', artist: 'Ryan Jones', year: 2021, songs: 18, image: albumArtwork },
-	{ id: '5', title: 'Lover', artist: 'Taylor Swift', year: 2019, songs: 18, image: altArtwork },
-	{ id: '6', title: 'KHIPU', artist: 'Acidrap', year: 2023, songs: 22, image: artistArtwork },
-	{ id: '7', title: 'Fine Line', artist: 'Harry Styles', year: 2019, songs: 13, image: albumArtwork },
-	{ id: '8', title: 'Midnights', artist: 'Taylor Swift', year: 2022, songs: 19, image: altArtwork },
+const defaultRecentlyPlayed: MusicItem[] = [
+	{ id: '1', title: 'Telugu Hits', artist: 'Various Artists', image: albumArtwork },
+	{ id: '2', title: 'Hindi Top 50', artist: 'Various Artists', image: altArtwork },
+	{ id: '3', title: 'Tamil Vibe', artist: 'Various Artists', image: artistArtwork },
+	{ id: '4', title: 'Malayalam Mix', artist: 'Various Artists', image: albumArtwork },
+];
+
+const defaultMostPlayed: MusicItem[] = [
+	{ id: '1', title: 'English Pop Mix', artist: 'Various Artists', image: altArtwork },
+	{ id: '2', title: 'Kannada Beats', artist: 'Various Artists', image: artistArtwork },
+	{ id: '3', title: 'Telugu Melody', artist: 'Various Artists', image: albumArtwork },
+	{ id: '4', title: 'Hindi Romance', artist: 'Various Artists', image: altArtwork },
+];
+
+const defaultArtists: ArtistItem[] = [
+	{ id: '1', name: 'S. Thaman', image: artistArtwork, albums: 8, songs: 120 },
+	{ id: '2', name: 'Anirudh Ravichander', image: albumArtwork, albums: 9, songs: 140 },
+	{ id: '3', name: 'M.M. Keeravani', image: altArtwork, albums: 12, songs: 180 },
+	{ id: '4', name: 'Sai Abhyankkar', image: albumArtwork, albums: 2, songs: 16 },
+	{ id: '5', name: 'Sid Sriram', image: artistArtwork, albums: 6, songs: 90 },
+	{ id: '6', name: 'Devi Sri Prasad', image: altArtwork, albums: 11, songs: 170 },
+	{ id: '7', name: 'Yuvan Shankar Raja', image: albumArtwork, albums: 10, songs: 160 },
+	{ id: '8', name: 'G. V. Prakash Kumar', image: artistArtwork, albums: 7, songs: 110 },
+];
+
+const defaultAlbumsData: AlbumItem[] = [
+	{ id: '1', title: 'Telugu Essentials', artist: 'JioSaavn', year: 2024, songs: 50, image: albumArtwork },
+	{ id: '2', title: 'Telugu Romance Essentials', artist: 'JioSaavn', year: 2024, songs: 40, image: altArtwork },
+	{ id: '3', title: 'Telugu Dance Essentials', artist: 'JioSaavn', year: 2024, songs: 45, image: artistArtwork },
+	{ id: '4', title: 'Telugu Melody Essentials', artist: 'JioSaavn', year: 2024, songs: 42, image: albumArtwork },
 ];
 
 const sortOptions = [
@@ -136,6 +169,11 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const [activeTab, setActiveTab] = useState<HomeTab>('Suggested');
 	const [currentSort, setCurrentSort] = useState('Ascending');
 	const [playingSongId, setPlayingSongId] = useState('');
+	const [songsData, setSongsData] = useState<SongListItem[]>(defaultSongsData);
+	const [artistsData, setArtistsData] = useState<ArtistItem[]>(defaultArtists);
+	const [albumsData, setAlbumsData] = useState<AlbumItem[]>(defaultAlbumsData);
+	const [recentlyPlayed, setRecentlyPlayed] = useState<MusicItem[]>(defaultRecentlyPlayed);
+	const [mostPlayed, setMostPlayed] = useState<MusicItem[]>(defaultMostPlayed);
 	const [isSortModalVisible, setSortModalVisible] = useState(false);
 	const [isOptionsModalVisible, setOptionsModalVisible] = useState(false);
 	const [isArtistOptionsModalVisible, setArtistOptionsModalVisible] = useState(false);
@@ -143,6 +181,114 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const [selectedSong, setSelectedSong] = useState<SongListItem | null>(null);
 	const [selectedArtist, setSelectedArtist] = useState<ArtistItem | null>(null);
 	const [selectedAlbum, setSelectedAlbum] = useState<AlbumItem | null>(null);
+
+	useEffect(() => {
+		let mounted = true;
+
+		const mapSong = (song: SearchResult): SongListItem => ({
+			id: song.id,
+			title: song.title,
+			artist: getArtistName(song),
+			duration: `${formatDuration(song.duration)} mins`,
+			image: { uri: song.image },
+			url: song.url,
+		});
+
+		const loadHomeData = async () => {
+			try {
+				const languageResults = await Promise.all(
+					LANGUAGE_QUERIES.map((query) => searchSongs(query)),
+				);
+
+				const mergedSongs = languageResults
+					.flat()
+					.filter((song) => song.id && song.title && song.url)
+					.filter((song, index, arr) => arr.findIndex((s) => s.id === song.id) === index)
+					.slice(0, 32)
+					.map(mapSong);
+
+				const artistResults = await Promise.all(
+					FEATURED_ARTIST_NAMES.map((name) => searchArtists(name)),
+				);
+
+				const apiArtists = artistResults.reduce<ArtistItem[]>((acc, results, index) => {
+					const topArtist = results[0];
+					if (!topArtist) {
+						return acc;
+					}
+
+					acc.push({
+						id: topArtist.id || `artist-${index}`,
+						name: topArtist.title,
+						image: { uri: topArtist.image },
+						albums: 1,
+						songs: 20,
+					});
+
+					return acc;
+				}, []);
+
+				const albumResults = await Promise.all(
+					TELUGU_ESSENTIALS_ALBUM_QUERIES.map((query) => searchAlbums(query)),
+				);
+
+				const apiAlbums: AlbumItem[] = albumResults
+					.flat()
+					.filter((album) => album.id && album.title)
+					.filter((album, index, arr) => arr.findIndex((a) => a.id === album.id) === index)
+					.slice(0, 12)
+					.map((album, index) => ({
+						id: album.id || `album-${index}`,
+						title: album.title,
+						artist: album.description?.split('|')[0]?.trim() || 'JioSaavn',
+						year: Number(album.year) || 2024,
+						songs: Number(album.songCount) || 20,
+						image: { uri: album.image },
+					}));
+
+				if (!mounted) {
+					return;
+				}
+
+				if (mergedSongs.length > 0) {
+					setSongsData(mergedSongs);
+					setRecentlyPlayed(
+						mergedSongs.slice(0, 8).map((song) => ({
+							id: song.id,
+							title: song.title,
+							artist: song.artist,
+							image: song.image,
+						})),
+					);
+
+					setMostPlayed(
+						mergedSongs.slice(8, 16).map((song) => ({
+							id: `most-${song.id}`,
+							title: song.title,
+							artist: song.artist,
+							image: song.image,
+						})),
+					);
+				}
+
+				if (apiArtists.length > 0) {
+					setArtistsData(apiArtists);
+				}
+
+				if (apiAlbums.length > 0) {
+					setAlbumsData(apiAlbums);
+				}
+			} catch (error) {
+				console.error('Home API load error:', error);
+			}
+		};
+
+		void loadHomeData();
+
+		return () => {
+			mounted = false;
+		};
+	}, []);
 
 	const handleSeeAllPress = (tab: HomeTab) => {
 		setActiveTab(tab);
@@ -354,7 +500,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					onSeeAllPress={() => handleSeeAllPress('Artists')}
 				/>
 				<FlatList
-					data={artists}
+					data={artistsData}
 					renderItem={renderArtistCard}
 					keyExtractor={(item) => item.id}
 					horizontal
@@ -383,7 +529,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const renderSongsTab = () => (
 		<View style={styles.songsTabContainer}>
 			<View style={styles.songsHeaderRow}>
-				<Text style={styles.songCountText}>560 songs</Text>
+				<Text style={styles.songCountText}>{songsData.length} songs</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
@@ -406,7 +552,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const renderArtistsTab = () => (
 		<View style={styles.artistsTabContainer}>
 			<View style={styles.artistsHeaderRow}>
-				<Text style={styles.artistCountText}>{artists.length} artists</Text>
+				<Text style={styles.artistCountText}>{artistsData.length} artists</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
@@ -417,7 +563,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 			</View>
 
 			<FlatList
-				data={artists}
+				data={artistsData}
 				renderItem={renderArtistRow}
 				keyExtractor={(item) => item.id}
 				showsVerticalScrollIndicator={false}
@@ -434,7 +580,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
 				>
-					<Text style={styles.sortButtonText}>Date Modified</Text>
+					<Text style={styles.sortButtonText}>Ascending</Text>
 					<Ionicons name="swap-vertical" size={22} color={colors.primary} />
 				</TouchableOpacity>
 			</View>
@@ -857,7 +1003,7 @@ const styles = StyleSheet.create({
 		borderBottomColor: '#EFEFEF',
 	},
 	sortOptionText: {
-		fontSize: 21 / 2,
+		fontSize: 28 / 2,
 		color: '#1F1F1F',
 		fontWeight: '500',
 	},

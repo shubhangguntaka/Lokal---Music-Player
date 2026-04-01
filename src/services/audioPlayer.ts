@@ -62,6 +62,11 @@ export const resumeSong = async () => {
 	await sound.playAsync();
 };
 
+export const seekSongToPosition = async (positionMillis: number) => {
+	if (!sound) return;
+	await sound.setPositionAsync(Math.max(0, positionMillis));
+};
+
 export const unloadSong = async () => {
 	if (!sound) return;
 	await sound.unloadAsync();

@@ -4,6 +4,7 @@ import {
 	pauseSong,
 	playSongFromUrl,
 	resumeSong,
+	seekSongToPosition,
 	setPlaybackStatusListener,
 } from '../services/audioPlayer';
 
@@ -20,6 +21,7 @@ type PlayerStore = {
 	playSong: (song: PlayerTrack, queue: PlayerTrack[]) => void;
 	playNext: () => void;
 	playPrevious: () => void;
+	seekTo: (positionMillis: number) => void;
 };
 
 export const usePlayerStore = create<PlayerStore>((set, get) => ({
@@ -122,6 +124,17 @@ export const usePlayerStore = create<PlayerStore>((set, get) => ({
 			isPlaying: true,
 			positionMillis: 0,
 		});
+	},
+
+	seekTo: (positionMillis) => {
+		const { durationMillis } = get();
+		const boundedPosition = Math.max(
+			0,
+			Math.min(positionMillis, durationMillis || positionMillis),
+		);
+
+		void seekSongToPosition(boundedPosition);
+		set({ positionMillis: boundedPosition });
 	},
 }));
 

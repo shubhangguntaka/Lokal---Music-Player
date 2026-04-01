@@ -68,13 +68,10 @@ const Player: React.FC<PlayerProps> = ({
 
 const styles = StyleSheet.create({
 	container: {
-		height: 90,
+		height: 80,
 		backgroundColor: '#FFFFFF',
-		borderWidth: 2,
-		borderColor: '#EFEFEF',
-		borderRadius: 30,
+		borderRadius: 18,
 		paddingHorizontal: 16,
-        bottom: 20,
 		flexDirection: 'row',
 		alignItems: 'center',
 	},
@@ -95,7 +92,7 @@ const styles = StyleSheet.create({
 		marginRight: 10,
 	},
 	trackTitle: {
-		fontSize: 20 / 2,
+		fontSize: 28 / 2,
 		fontWeight: '600',
 		color: '#1A1A1A',
 	},

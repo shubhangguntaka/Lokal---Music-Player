@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
 	View,
 	StyleSheet,
@@ -14,6 +14,8 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { searchSongs, searchArtists, searchAlbums, SearchResult, getArtistName, formatDuration } from '../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { usePlayerStore } from '../store/playerStore';
+import { PlayerTrack } from '../components/Player';
 
 type SearchFilter = 'Songs' | 'Artists' | 'Albums' | 'Folders';
 
@@ -26,18 +28,21 @@ const INITIAL_RECENT_SEARCHES = ['Ariana Grande', 'Morgan Wallen', 'Justin Biebe
 interface SongItem {
 	id: string;
 	title: string;
-	artist: string;
-	duration: string;
+	subtitle: string;
 	image: { uri: string };
+	artist?: string;
+	duration?: string;
+	url?: string;
 }
 
 const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 	const [searchQuery, setSearchQuery] = useState('');
 	const [activeFilter, setActiveFilter] = useState<SearchFilter>('Songs');
 	const [isLoading, setIsLoading] = useState(false);
-	const [results, setResults] = useState<any[]>([]);
+	const [results, setResults] = useState<SongItem[]>([]);
 	const [hasSearched, setHasSearched] = useState(false);
 	const [recentSearches, setRecentSearches] = useState<string[]>(INITIAL_RECENT_SEARCHES);
+	const playSong = usePlayerStore((state) => state.playSong);
 
 	const filters: SearchFilter[] = ['Songs', 'Artists', 'Albums', 'Folders'];
 
@@ -62,17 +67,33 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 						title: song.title,
 						artist: getArtistName(song),
 						duration: formatDuration(song.duration),
+						subtitle: `${getArtistName(song)}  |  ${formatDuration(song.duration)}`,
 						image: { uri: song.image || 'https://via.placeholder.com/100' },
+						url: song.url,
 					}));
 					setResults(formattedSongs);
 					break;
 				case 'Artists':
 					const artists = await searchArtists(text);
-					setResults(artists);
+					setResults(
+						artists.map((artist: SearchResult) => ({
+							id: artist.id,
+							title: artist.title,
+							subtitle: artist.description || 'Artist',
+							image: { uri: artist.image || 'https://via.placeholder.com/100' },
+						})),
+					);
 					break;
 				case 'Albums':
 					const albums = await searchAlbums(text);
-					setResults(albums);
+					setResults(
+						albums.map((album: SearchResult) => ({
+							id: album.id,
+							title: album.title,
+							subtitle: album.description || 'Album',
+							image: { uri: album.image || 'https://via.placeholder.com/100' },
+						})),
+					);
 					break;
 				default:
 					setResults([]);
@@ -110,6 +131,32 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		setRecentSearches([]);
 	};
 
+	const handlePlaySong = (item: SongItem) => {
+		if (!item.url) {
+			return;
+		}
+
+		const queue: PlayerTrack[] = results
+			.filter((result): result is SongItem => Boolean(result?.url && result?.id))
+			.map((result) => ({
+				id: result.id,
+				title: result.title,
+				artist: result.artist || 'Unknown Artist',
+				image: result.image,
+				url: result.url,
+			}));
+
+		const selectedTrack: PlayerTrack = {
+			id: item.id,
+			title: item.title,
+			artist: item.artist || 'Unknown Artist',
+			image: item.image,
+			url: item.url,
+		};
+
+		playSong(selectedTrack, queue.length ? queue : [selectedTrack]);
+	};
+
 	const renderSearchResult = ({ item }: { item: SongItem }) => (
 		<TouchableOpacity style={styles.resultRow}>
 			<Image source={item.image} style={styles.resultImage} />
@@ -118,10 +165,14 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 					{item.title}
 				</Text>
 				<Text style={styles.resultSubtitle} numberOfLines={1}>
-					{item.artist}
+					{item.subtitle}
 				</Text>
 			</View>
-			<TouchableOpacity style={styles.playButton}>
+			<TouchableOpacity
+				style={styles.playButton}
+				onPress={() => handlePlaySong(item)}
+				disabled={activeFilter !== 'Songs' || !item.url}
+			>
 				<Ionicons name="play-circle" size={36} color={colors.primary} />
 			</TouchableOpacity>
 			<TouchableOpacity style={styles.moreButton}>

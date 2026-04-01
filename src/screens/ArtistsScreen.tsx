@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+	ActivityIndicator,
 	View,
 	StyleSheet,
 	Text,
@@ -13,6 +14,12 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { PlayerTrack } from '../components/Player';
 import { colors } from '../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+	formatDuration,
+	getArtistName,
+	searchSongsByQueries,
+	SearchResult,
+} from '../services/api';
 
 interface ArtistDetailScreenProps {
 	artistId: string;
@@ -30,40 +37,9 @@ interface SongItem {
 	title: string;
 	artist: string;
 	image: ImageSourcePropType;
+	duration?: string;
 	url?: string;
 }
-
-// Sample songs data for artist
-const sampleSongs: SongItem[] = [
-	{
-		id: '1',
-		title: 'Bang Bang',
-		artist: 'Ariana Grande',
-		image: require('../../assets/icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3',
-	},
-	{
-		id: '2',
-		title: 'The Light Is Coming',
-		artist: 'Ariana Grande',
-		image: require('../../assets/adaptive-icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3',
-	},
-	{
-		id: '3',
-		title: 'Dangerous Woman',
-		artist: 'Ariana Grande',
-		image: require('../../assets/splash-icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3',
-	},
-	{
-		id: '4',
-		title: 'Focus',
-		artist: 'Ariana Grande',
-		image: require('../../assets/icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3',
-	},
-];
 
 const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 	artistName = 'Ariana Grande',
@@ -75,14 +51,68 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 	onBackPress,
 }) => {
 	const [playingSongId, setPlayingSongId] = useState<string | null>(null);
+	const [relatedSongs, setRelatedSongs] = useState<SongItem[]>([]);
+	const [isLoadingSongs, setIsLoadingSongs] = useState(false);
 
-	const playbackQueue: PlayerTrack[] = sampleSongs.map((song) => ({
-		id: song.id,
-		title: song.title,
-		artist: song.artist,
-		image: song.image,
-		url: song.url,
-	}));
+	useEffect(() => {
+		let mounted = true;
+
+		const fetchRelatedSongs = async () => {
+			setIsLoadingSongs(true);
+
+			try {
+				const queries = [
+					`${artistName} songs`,
+					`${artistName} hits`,
+					`${artistName} popular songs`,
+					`${artistName} telugu tamil hindi songs`,
+				];
+
+				const results = await searchSongsByQueries(queries, 24);
+
+				if (!mounted) {
+					return;
+				}
+
+				setRelatedSongs(
+					results.map((song: SearchResult) => ({
+						id: song.id,
+						title: song.title,
+						artist: getArtistName(song) || artistName,
+						image: { uri: song.image },
+						duration: formatDuration(song.duration),
+						url: song.url,
+					})),
+				);
+			} catch (error) {
+				console.error('Artist related songs fetch error:', error);
+			} finally {
+				if (mounted) {
+					setIsLoadingSongs(false);
+				}
+			}
+		};
+
+		void fetchRelatedSongs();
+
+		return () => {
+			mounted = false;
+		};
+	}, [artistName]);
+
+	const playbackQueue: PlayerTrack[] = useMemo(
+		() =>
+			relatedSongs
+				.filter((song) => Boolean(song.url))
+				.map((song) => ({
+					id: song.id,
+					title: song.title,
+					artist: song.artist,
+					image: song.image,
+					url: song.url,
+				})),
+		[relatedSongs],
+	);
 
 	const renderSongRow = ({ item }: { item: SongItem }) => {
 		const isPlaying = playingSongId === item.id;
@@ -95,12 +125,13 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 						{item.title}
 					</Text>
 					<Text style={styles.songArtist} numberOfLines={1}>
-						{item.artist}
+						{item.artist}{item.duration ? ` | ${item.duration}` : ''}
 					</Text>
 				</View>
 				<TouchableOpacity
 					style={styles.playButton}
 					onPress={() => {
+						if (!item.url) return;
 						setPlayingSongId(isPlaying ? null : item.id);
 						onPlaySong?.(
 							{
@@ -153,7 +184,7 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 				{/* Artist Info */}
 				<Text style={styles.artistName}>{artistName}</Text>
 				<Text style={styles.artistMeta}>
-					{albums} Album | {songs} Songs | {totalDuration}
+					{albums} Album | {relatedSongs.length || songs} Songs | {totalDuration}
 				</Text>
 
 				{/* Action Buttons */}
@@ -190,13 +221,21 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 						</TouchableOpacity>
 					</View>
 
-					<FlatList
-						data={sampleSongs}
-						renderItem={renderSongRow}
-						keyExtractor={(item) => item.id}
-						scrollEnabled={false}
-						contentContainerStyle={styles.songsList}
-					/>
+					{isLoadingSongs ? (
+						<View style={styles.loadingWrap}>
+							<ActivityIndicator size="small" color={colors.primary} />
+						</View>
+					) : relatedSongs.length === 0 ? (
+						<Text style={styles.emptyText}>No related songs found</Text>
+					) : (
+						<FlatList
+							data={relatedSongs}
+							renderItem={renderSongRow}
+							keyExtractor={(item) => item.id}
+							scrollEnabled={false}
+							contentContainerStyle={styles.songsList}
+						/>
+					)}
 				</View>
 			</ScrollView>
 		</SafeAreaView>
@@ -308,6 +347,16 @@ const styles = StyleSheet.create({
 	},
 	songsList: {
 		paddingTop: 8,
+	},
+	loadingWrap: {
+		paddingVertical: 20,
+		alignItems: 'center',
+	},
+	emptyText: {
+		fontSize: 14,
+		color: '#777777',
+		paddingVertical: 20,
+		textAlign: 'center',
 	},
 	songRow: {
 		flexDirection: 'row',

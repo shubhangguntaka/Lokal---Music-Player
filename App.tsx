@@ -1,6 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
-import React, { useMemo, useState } from 'react';
-import { Modal, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import HomeScreen from './src/screens/HomeScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import SearchScreen from './src/screens/SearchScreen';
@@ -40,7 +42,8 @@ export default function App() {
   const [currentMainScreen, setCurrentMainScreen] = useState<MainScreen>('home');
   const [selectedArtist, setSelectedArtist] = useState<ArtistDetail | null>(null);
   const [selectedAlbum, setSelectedAlbum] = useState<AlbumDetail | null>(null);
-  const [isNowPlayingOpen, setIsNowPlayingOpen] = useState(false);
+  const [sheetIndex, setSheetIndex] = useState(-1);
+  const bottomSheetRef = useRef<BottomSheet>(null);
 
   const currentTrack = usePlayerStore((state) => state.currentSong);
   const isPlaying = usePlayerStore((state) => state.isPlaying);
@@ -50,10 +53,32 @@ export default function App() {
   const togglePlay = usePlayerStore((state) => state.togglePlay);
   const playNext = usePlayerStore((state) => state.playNext);
   const playPrevious = usePlayerStore((state) => state.playPrevious);
+  const seekTo = usePlayerStore((state) => state.seekTo);
+  const isExpanded = sheetIndex === 1;
+
+  const snapPoints = useMemo(() => [110, '100%'], []);
+
+  const openNowPlaying = useCallback(() => {
+    bottomSheetRef.current?.snapToIndex(1);
+  }, []);
+
+  const collapseNowPlaying = useCallback(() => {
+    bottomSheetRef.current?.snapToIndex(0);
+  }, []);
+
+  useEffect(() => {
+    if (currentTrack) {
+      bottomSheetRef.current?.snapToIndex(0);
+      setSheetIndex(0);
+      return;
+    }
+
+    bottomSheetRef.current?.close();
+    setSheetIndex(-1);
+  }, [currentTrack]);
 
   const handlePlaySong = (song: PlayerTrack, nextQueue: PlayerTrack[]) => {
     playSong(song, nextQueue);
-    setIsNowPlayingOpen(true);
   };
 
   const handleTogglePlay = () => {
@@ -66,6 +91,10 @@ export default function App() {
 
   const handlePrevious = () => {
     playPrevious();
+  };
+
+  const handleSeek = (nextPositionMillis: number) => {
+    seekTo(nextPositionMillis);
   };
 
   const currentScreen = useMemo(() => {
@@ -151,73 +180,103 @@ export default function App() {
   ]);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <View style={styles.appContainer}>
-        <View style={styles.screenContainer}>{currentScreen}</View>
-        {currentTrack && (
-          <View
-            style={[
-              styles.miniPlayerWrapper,
-              currentMainScreen === 'home'
-                ? styles.miniPlayerWithBottomNav
-                : styles.miniPlayerNoBottomNav,
-            ]}
-          >
-            <Player
-              currentTrack={currentTrack}
-              isPlaying={isPlaying}
-              onOpen={() => setIsNowPlayingOpen(true)}
-              onTogglePlay={handleTogglePlay}
-              onNext={handleNext}
-            />
-          </View>
-        )}
-        {currentMainScreen === 'home' && (
-          <BottomNavBar activeTab={activeBottomTab} onTabPress={setActiveBottomTab} />
-        )}
+    <GestureHandlerRootView style={styles.rootContainer}>
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <View style={styles.appContainer}>
+          <View style={styles.screenContainer}>{currentScreen}</View>
 
-    <Modal
-      visible={isNowPlayingOpen && !!currentTrack}
-      animationType="slide"
-      onRequestClose={() => setIsNowPlayingOpen(false)}
-    >
-      {currentTrack && (
-        <NowPlayingScreen
-          track={currentTrack}
-          isPlaying={isPlaying}
-          positionMillis={positionMillis}
-          durationMillis={durationMillis}
-          onClose={() => setIsNowPlayingOpen(false)}
-          onTogglePlay={handleTogglePlay}
-          onNext={handleNext}
-          onPrevious={handlePrevious}
-        />
-      )}
-    </Modal>
-      </View>
-    </SafeAreaProvider>
+          {currentMainScreen === 'home' && (
+            <BottomNavBar activeTab={activeBottomTab} onTabPress={setActiveBottomTab} />
+          )}
+
+          {currentTrack && (
+            <BottomSheet
+              ref={bottomSheetRef}
+              index={0}
+              snapPoints={snapPoints}
+              onChange={setSheetIndex}
+              handleIndicatorStyle={styles.sheetHandleIndicator}
+              backgroundStyle={[
+                styles.sheetBackground,
+                isExpanded && styles.sheetBackgroundExpanded,
+              ]}
+              containerStyle={[
+                styles.sheetContainer,
+                isExpanded ? styles.sheetContainerExpanded : styles.sheetContainerCollapsed,
+              ]}
+              enablePanDownToClose={false}
+              enableOverDrag={false}
+              bottomInset={isExpanded ? 0 : currentMainScreen === 'home' ? 86 : 14}
+            >
+              <BottomSheetView style={styles.sheetContent}>
+                {sheetIndex <= 0 ? (
+                  <Player
+                    currentTrack={currentTrack}
+                    isPlaying={isPlaying}
+                    onOpen={openNowPlaying}
+                    onTogglePlay={handleTogglePlay}
+                    onNext={handleNext}
+                  />
+                ) : (
+                  <NowPlayingScreen
+                    track={currentTrack}
+                    isPlaying={isPlaying}
+                    positionMillis={positionMillis}
+                    durationMillis={durationMillis}
+                    onClose={collapseNowPlaying}
+                    onTogglePlay={handleTogglePlay}
+                    onNext={handleNext}
+                    onPrevious={handlePrevious}
+                    onSeek={handleSeek}
+                  />
+                )}
+              </BottomSheetView>
+            </BottomSheet>
+          )}
+        </View>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+  },
   appContainer: {
     flex: 1,
   },
   screenContainer: {
     flex: 1,
   },
-  miniPlayerWrapper: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    width: '100%',
+  sheetContainer: {
+    marginBottom: 0,
+  },
+  sheetContainerCollapsed: {
     paddingHorizontal: 10,
+    marginBottom: -10,
   },
-  miniPlayerWithBottomNav: {
-    bottom: 60,
+  sheetContainerExpanded: {
+    paddingHorizontal: 0,
   },
-  miniPlayerNoBottomNav: {
-    bottom: 16,
+  sheetBackground: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  sheetBackgroundExpanded: {
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+  },
+  sheetHandleIndicator: {
+    width: 44,
+    height: 4,
+    backgroundColor: '#D7D7D7',
+  },
+  sheetContent: {
+    flex: 1,
   },
 });

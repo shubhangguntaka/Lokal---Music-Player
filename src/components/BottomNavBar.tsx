@@ -37,7 +37,7 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
 	};
 
 	return (
-		<View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+		<View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 10) }]}>
 			{tabs.map((tab) => {
 				const isActive = activeTab === tab;
 
@@ -62,23 +62,12 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		paddingHorizontal: 24,
-		paddingTop: 14,
-		marginTop: -40,
-		borderTopLeftRadius: 34,
-		borderTopRightRadius: 34,
-		backgroundColor: '#FDFDFD',
+		paddingHorizontal: 18,
+		paddingTop: 10,
+		marginTop: -20,
+		backgroundColor: '#FFFFFF',
 		borderTopWidth: 1,
-		borderTopColor: '#EEEEEE',
-		overflow: 'hidden',
-		shadowColor: '#000000',
-		shadowOffset: {
-			width: 0,
-			height: -4,
-		},
-		shadowOpacity: 0.06,
-		shadowRadius: 8,
-		elevation: 8,
+		borderTopColor: '#ECECEC',
 	},
 	tabButton: {
 		alignItems: 'center',
@@ -86,7 +75,8 @@ const styles = StyleSheet.create({
 		minWidth: 68,
 	},
 	tabLabel: {
-		fontSize: 11,
+		marginTop: 2,
+		fontSize: 10,
 		fontWeight: '500',
 		color: '#9A9A9A',
 	},

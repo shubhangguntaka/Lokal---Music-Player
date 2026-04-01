@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+	ActivityIndicator,
 	View,
 	StyleSheet,
 	Text,
@@ -13,6 +14,12 @@ import { Ionicons, Feather } from '@expo/vector-icons';
 import { PlayerTrack } from '../components/Player';
 import { colors } from '../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+	formatDuration,
+	getArtistName,
+	searchSongsByQueries,
+	SearchResult,
+} from '../services/api';
 
 interface AlbumDetailScreenProps {
 	albumId: string;
@@ -31,40 +38,9 @@ interface SongItem {
 	title: string;
 	artist: string;
 	image: ImageSourcePropType;
+	duration?: string;
 	url?: string;
 }
-
-// Sample songs data for album
-const sampleSongs: SongItem[] = [
-	{
-		id: '1',
-		title: 'Take My Breath',
-		artist: 'The Weeknd',
-		image: require('../../assets/icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3',
-	},
-	{
-		id: '2',
-		title: 'A Tale by Quincy',
-		artist: 'The Weeknd',
-		image: require('../../assets/adaptive-icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-12.mp3',
-	},
-	{
-		id: '3',
-		title: 'Out of Time',
-		artist: 'The Weeknd',
-		image: require('../../assets/splash-icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-13.mp3',
-	},
-	{
-		id: '4',
-		title: 'Starboy',
-		artist: 'The Weeknd',
-		image: require('../../assets/icon.png'),
-		url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-14.mp3',
-	},
-];
 
 const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 	albumTitle = 'Dawn FM',
@@ -77,14 +53,68 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 	onBackPress,
 }) => {
 	const [playingSongId, setPlayingSongId] = useState<string | null>(null);
+	const [relatedSongs, setRelatedSongs] = useState<SongItem[]>([]);
+	const [isLoadingSongs, setIsLoadingSongs] = useState(false);
 
-	const playbackQueue: PlayerTrack[] = sampleSongs.map((song) => ({
-		id: song.id,
-		title: song.title,
-		artist: song.artist,
-		image: song.image,
-		url: song.url,
-	}));
+	useEffect(() => {
+		let mounted = true;
+
+		const fetchRelatedSongs = async () => {
+			setIsLoadingSongs(true);
+
+			try {
+				const queries = [
+					`${albumTitle} ${artist} songs`,
+					`${albumTitle} full album`,
+					`${albumTitle} jukebox`,
+					`${artist} ${albumTitle}`,
+				];
+
+				const results = await searchSongsByQueries(queries, 24);
+
+				if (!mounted) {
+					return;
+				}
+
+				setRelatedSongs(
+					results.map((song: SearchResult) => ({
+						id: song.id,
+						title: song.title,
+						artist: getArtistName(song) || artist,
+						image: { uri: song.image },
+						duration: formatDuration(song.duration),
+						url: song.url,
+					})),
+				);
+			} catch (error) {
+				console.error('Album related songs fetch error:', error);
+			} finally {
+				if (mounted) {
+					setIsLoadingSongs(false);
+				}
+			}
+		};
+
+		void fetchRelatedSongs();
+
+		return () => {
+			mounted = false;
+		};
+	}, [albumTitle, artist]);
+
+	const playbackQueue: PlayerTrack[] = useMemo(
+		() =>
+			relatedSongs
+				.filter((song) => Boolean(song.url))
+				.map((song) => ({
+					id: song.id,
+					title: song.title,
+					artist: song.artist,
+					image: song.image,
+					url: song.url,
+				})),
+		[relatedSongs],
+	);
 
 	const renderSongRow = ({ item }: { item: SongItem }) => {
 		const isPlaying = playingSongId === item.id;
@@ -97,12 +127,13 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 						{item.title}
 					</Text>
 					<Text style={styles.songArtist} numberOfLines={1}>
-						{item.artist}
+						{item.artist}{item.duration ? ` | ${item.duration}` : ''}
 					</Text>
 				</View>
 				<TouchableOpacity
 					style={styles.playButton}
 					onPress={() => {
+						if (!item.url) return;
 						setPlayingSongId(isPlaying ? null : item.id);
 						onPlaySong?.(
 							{
@@ -158,7 +189,7 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 					{artist} | {year}
 				</Text>
 				<Text style={styles.albumStats}>
-					{songs} Songs | {totalDuration}
+					{relatedSongs.length || songs} Songs | {totalDuration}
 				</Text>
 
 				{/* Action Buttons */}
@@ -195,13 +226,21 @@ const AlbumsScreen: React.FC<AlbumDetailScreenProps> = ({
 						</TouchableOpacity>
 					</View>
 
-					<FlatList
-						data={sampleSongs}
-						renderItem={renderSongRow}
-						keyExtractor={(item) => item.id}
-						scrollEnabled={false}
-						contentContainerStyle={styles.songsList}
-					/>
+					{isLoadingSongs ? (
+						<View style={styles.loadingWrap}>
+							<ActivityIndicator size="small" color={colors.primary} />
+						</View>
+					) : relatedSongs.length === 0 ? (
+						<Text style={styles.emptyText}>No related songs found</Text>
+					) : (
+						<FlatList
+							data={relatedSongs}
+							renderItem={renderSongRow}
+							keyExtractor={(item) => item.id}
+							scrollEnabled={false}
+							contentContainerStyle={styles.songsList}
+						/>
+					)}
 				</View>
 			</ScrollView>
 		</SafeAreaView>
@@ -320,6 +359,16 @@ const styles = StyleSheet.create({
 	},
 	songsList: {
 		paddingTop: 8,
+	},
+	loadingWrap: {
+		paddingVertical: 20,
+		alignItems: 'center',
+	},
+	emptyText: {
+		fontSize: 14,
+		color: '#777777',
+		paddingVertical: 20,
+		textAlign: 'center',
 	},
 	songRow: {
 		flexDirection: 'row',
