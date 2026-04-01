@@ -425,15 +425,6 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={styles.scrollContent}
 			>
-				<View style={styles.header}>
-					<TouchableOpacity onPress={onClose} style={styles.headerIconButton}>
-						<Ionicons name="chevron-back" size={30} color="#1A1A1A" />
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.headerIconButton} onPress={openTrackActions}>
-						<Ionicons name="ellipsis-horizontal-circle-outline" size={34} color="#1A1A1A" />
-					</TouchableOpacity>
-				</View>
-
 				<View style={styles.artworkWrap}>
 					<Image source={track.image} style={[styles.artwork, { width: artworkSize, height: artworkSize }]} />
 				</View>
@@ -781,7 +772,7 @@ const styles = StyleSheet.create({
 		elevation: 6,
 	},
 	bottomActions: {
-		marginTop: 28,
+		marginTop: 10,
 		paddingHorizontal: 4,
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -882,11 +873,10 @@ const styles = StyleSheet.create({
 		marginLeft: 8,
 	},
 	lyricsArea: {
-		marginTop: 26,
+		marginTop: 10,
 		alignItems: 'center',
 	},
 	lyricsText: {
-		marginTop: 6,
 		fontSize: 22,
 		fontWeight: '500',
 		color: '#1A1A1A',
