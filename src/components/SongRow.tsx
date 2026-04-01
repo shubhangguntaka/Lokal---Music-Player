@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, ScrollView, TouchableOpacity, ImageSourcePropType } from 'react-native';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 
 export interface SongItem {
   id: string;
@@ -23,12 +23,14 @@ const SongRow: React.FC<SongRowProps> = ({
   onSeeAllPress, 
   onItemPress 
 }) => {
+  const theme = useThemeColors();
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
         <TouchableOpacity onPress={onSeeAllPress}>
-          <Text style={styles.seeAllText}>See All</Text>
+          <Text style={[styles.seeAllText, { color: theme.primary }]}>See All</Text>
         </TouchableOpacity>
       </View>
 
@@ -47,11 +49,16 @@ const SongRow: React.FC<SongRowProps> = ({
               source={item.image} 
               style={[
                 styles.image, 
+                { backgroundColor: theme.imagePlaceholder },
                 imageShape === 'circle' ? styles.circleImage : styles.squareImage
               ]} 
             />
             <Text 
-              style={[styles.itemTitle, imageShape === 'circle' && styles.centerText]} 
+              style={[
+                styles.itemTitle,
+                { color: theme.text },
+                imageShape === 'circle' && styles.centerText,
+              ]}
               numberOfLines={2}
             >
               {item.title}
@@ -77,12 +84,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A1A',
   },
   seeAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
   },
   listContainer: {
     paddingHorizontal: 16,
@@ -106,7 +111,6 @@ const styles = StyleSheet.create({
   itemTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: '#1A1A1A',
     lineHeight: 20,
   },
   centerText: {

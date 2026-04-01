@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { colors, useThemeColors } from '../theme/colors';
 import { PlayerTrack } from '../components/Player';
 import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
 import { usePlayerStore } from '../store/playerStore';
@@ -136,6 +136,7 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	playbackRate = 1,
 	onChangePlaybackRate,
 }) => {
+	const theme = useThemeColors();
 	const { width } = useWindowDimensions();
 	const elapsedSeconds = Math.floor(positionMillis / 1000);
 	const totalSeconds = Math.floor(durationMillis / 1000);
@@ -418,7 +419,7 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 				: 'Rpt 1';
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
 			<ScrollView
 				scrollEnabled={!isScrubbing}
 				bounces={false}
@@ -426,13 +427,27 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 				contentContainerStyle={styles.scrollContent}
 			>
 				<View style={styles.artworkWrap}>
-					<Image source={track.image} style={[styles.artwork, { width: artworkSize, height: artworkSize }]} />
+					<Image
+						source={track.image}
+						style={[
+							styles.artwork,
+							{ width: artworkSize, height: artworkSize, backgroundColor: theme.imagePlaceholder },
+						]}
+					/>
 				</View>
 
-				<MarqueeText text={track.title} textStyle={styles.title} containerStyle={styles.titleWrap} />
-				<MarqueeText text={track.artist} textStyle={styles.artist} containerStyle={styles.artistWrap} />
+				<MarqueeText
+					text={track.title}
+					textStyle={[styles.title, { color: theme.text }]}
+					containerStyle={styles.titleWrap}
+				/>
+				<MarqueeText
+					text={track.artist}
+					textStyle={[styles.artist, { color: theme.subText }]}
+					containerStyle={styles.artistWrap}
+				/>
 
-				<View style={styles.divider} />
+				<View style={[styles.divider, { backgroundColor: theme.border }]} />
 
 				<View style={styles.progressWrap}>
 					<View
@@ -442,26 +457,26 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 						}}
 						{...panResponder.panHandlers}
 					>
-						<View style={[styles.progressFill, { width: `${displayProgress * 100}%` }]} />
-						<View style={[styles.progressThumb, { left: `${displayProgress * 100}%` }]} />
+						<View style={[styles.progressFill, { width: `${displayProgress * 100}%`, backgroundColor: theme.primary }]} />
+						<View style={[styles.progressThumb, { left: `${displayProgress * 100}%`, backgroundColor: theme.primary }]} />
 					</View>
 					<View style={styles.timeRow}>
-						<Text style={styles.timeText}>
+						<Text style={[styles.timeText, { color: theme.text }]}> 
 							{formatTime(isScrubbing ? Math.floor((scrubProgress * durationMillis) / 1000) : elapsedSeconds)}
 						</Text>
-						<Text style={styles.timeText}>{formatTime(totalSeconds)}</Text>
+						<Text style={[styles.timeText, { color: theme.text }]}>{formatTime(totalSeconds)}</Text>
 					</View>
 				</View>
 
 				<View style={styles.mainControls}>
 					<TouchableOpacity style={styles.secondaryControl} onPress={onPrevious}>
-						<Ionicons name="play-skip-back" size={40} color="#111111" />
+						<Ionicons name="play-skip-back" size={40} color={theme.icon} />
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.secondaryControl} onPress={() => seekBySeconds(-10)}>
-						<Feather name="rotate-ccw" size={34} color="#111111" />
-						<Text style={styles.tenLabel}>10</Text>
+						<Feather name="rotate-ccw" size={34} color={theme.icon} />
+						<Text style={[styles.tenLabel, { color: theme.icon }]}>10</Text>
 					</TouchableOpacity>
-					<TouchableOpacity style={styles.playMain} onPress={onTogglePlay}>
+					<TouchableOpacity style={[styles.playMain, { backgroundColor: theme.primary }]} onPress={onTogglePlay}>
 						<Ionicons
 							name={isPlaying ? 'pause' : 'play'}
 							size={46}
@@ -469,26 +484,26 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 						/>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.secondaryControl} onPress={() => seekBySeconds(10)}>
-						<Feather name="rotate-cw" size={34} color="#111111" />
-						<Text style={styles.tenLabel}>10</Text>
+						<Feather name="rotate-cw" size={34} color={theme.icon} />
+						<Text style={[styles.tenLabel, { color: theme.icon }]}>10</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.secondaryControl} onPress={onNext}>
-						<Ionicons name="play-skip-forward" size={40} color="#111111" />
+						<Ionicons name="play-skip-forward" size={40} color={theme.icon} />
 					</TouchableOpacity>
 				</View>
 
 				<View style={styles.bottomActions}>
 					<TouchableOpacity style={styles.bottomActionButton} onPress={openSpeedMenu}>
-						<Ionicons name="speedometer-outline" size={28} color="#111111" />
-						<Text style={styles.bottomActionLabel}>{playbackRate.toFixed(2)}x</Text>
+						<Ionicons name="speedometer-outline" size={28} color={theme.icon} />
+						<Text style={[styles.bottomActionLabel, { color: theme.subText }]}>{playbackRate.toFixed(2)}x</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.bottomActionButton} onPress={openSleepTimerMenu}>
-						<Ionicons name="timer-outline" size={28} color="#111111" />
-						<Text style={styles.bottomActionLabel}>{sleepTimerLabel || 'Timer'}</Text>
+						<Ionicons name="timer-outline" size={28} color={theme.icon} />
+						<Text style={[styles.bottomActionLabel, { color: theme.subText }]}>{sleepTimerLabel || 'Timer'}</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.bottomActionButton} onPress={openQueuePanel}>
-						<Ionicons name="list-outline" size={28} color="#111111" />
-						<Text style={styles.bottomActionLabel}>Queue</Text>
+						<Ionicons name="list-outline" size={28} color={theme.icon} />
+						<Text style={[styles.bottomActionLabel, { color: theme.subText }]}>Queue</Text>
 					</TouchableOpacity>
 					<TouchableOpacity
 						style={styles.bottomActionButton}
@@ -497,21 +512,21 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 						<Ionicons
 							name="shuffle"
 							size={28}
-							color={isShuffleEnabled ? colors.primary : '#111111'}
+							color={isShuffleEnabled ? theme.primary : theme.icon}
 						/>
-						<Text style={styles.bottomActionLabel}>{isShuffleEnabled ? 'Shuffle On' : 'Shuffle'}</Text>
+						<Text style={[styles.bottomActionLabel, { color: theme.subText }]}>{isShuffleEnabled ? 'Shuffle On' : 'Shuffle'}</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.bottomActionButton} onPress={cycleRepeatMode}>
 						<Ionicons
 							name="repeat"
 							size={26}
-							color={repeatMode !== 'off' ? colors.primary : '#111111'}
+							color={repeatMode !== 'off' ? theme.primary : theme.icon}
 						/>
-						<Text style={styles.bottomActionLabel}>{repeatModeLabel}</Text>
+						<Text style={[styles.bottomActionLabel, { color: theme.subText }]}>{repeatModeLabel}</Text>
 					</TouchableOpacity>
 					<TouchableOpacity style={styles.bottomActionButton} onPress={openTrackActions}>
-						<Ionicons name="ellipsis-vertical" size={26} color="#111111" />
-						<Text style={styles.bottomActionLabel}>More</Text>
+						<Ionicons name="ellipsis-vertical" size={26} color={theme.icon} />
+						<Text style={[styles.bottomActionLabel, { color: theme.subText }]}>More</Text>
 					</TouchableOpacity>
 				</View>
 
@@ -519,16 +534,20 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 					style={styles.lyricsArea}
 					onPress={() => setShowLyrics((prev) => !prev)}
 				>
-					<Ionicons name={showLyrics ? 'chevron-down' : 'chevron-up'} size={28} color="#1A1A1A" />
-					<Text style={styles.lyricsText}>{showLyrics ? 'Hide Lyrics' : 'Lyrics'}</Text>
+					<Ionicons name={showLyrics ? 'chevron-down' : 'chevron-up'} size={28} color={theme.icon} />
+					<Text style={[styles.lyricsText, { color: theme.text }]}>{showLyrics ? 'Hide Lyrics' : 'Lyrics'}</Text>
 				</TouchableOpacity>
 
 				{showLyrics && (
-					<View style={styles.lyricsPanel}>
+					<View style={[styles.lyricsPanel, { backgroundColor: theme.surface }]}> 
 						{lyricsLines.map((line, index) => (
 							<Text
 								key={`${track.id}-${index}`}
-								style={index === 0 ? styles.lyricsLineActive : styles.lyricsLine}
+								style={
+									index === 0
+										? [styles.lyricsLineActive, { color: theme.text }]
+										: [styles.lyricsLine, { color: theme.subText }]
+								}
 							>
 								{line}
 							</Text>
@@ -544,22 +563,22 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 				onRequestClose={closeQueuePanel}
 			>
 				<TouchableOpacity
-					style={styles.queueModalOverlay}
+					style={[styles.queueModalOverlay, { backgroundColor: theme.overlay }]}
 					activeOpacity={1}
 					onPress={closeQueuePanel}
 				>
 					<TouchableOpacity
 						activeOpacity={1}
-						style={styles.queueSheet}
+						style={[styles.queueSheet, { backgroundColor: theme.surface }]}
 						onPress={() => undefined}
 					>
 						<View style={styles.queueSheetHeader}>
-							<Text style={styles.queueSheetTitle}>Queue ({queue.length})</Text>
+							<Text style={[styles.queueSheetTitle, { color: theme.text }]}>Queue ({queue.length})</Text>
 							<TouchableOpacity onPress={closeQueuePanel}>
-								<Ionicons name="close" size={24} color="#1A1A1A" />
+								<Ionicons name="close" size={24} color={theme.icon} />
 							</TouchableOpacity>
 						</View>
-						<Text style={styles.queueSheetSubtitle}>Queue is stored locally.</Text>
+						<Text style={[styles.queueSheetSubtitle, { color: theme.subText }]}>Queue is stored locally.</Text>
 
 						<ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.queueListContent}>
 							{queue.length === 0 ? (
@@ -571,7 +590,12 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 									return (
 										<View
 											key={`${queueTrack.id}-${index}`}
-											style={[styles.queueRow, isCurrentQueueTrack && styles.queueRowActive]}
+											style={[
+												styles.queueRow,
+												{ borderTopColor: theme.border },
+												isCurrentQueueTrack && styles.queueRowActive,
+												isCurrentQueueTrack && { backgroundColor: theme.softPrimary },
+											]}
 										>
 											<TouchableOpacity
 												style={styles.queueTrackInfo}
@@ -580,12 +604,12 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 													closeQueuePanel();
 												}}
 											>
-												<Image source={queueTrack.image} style={styles.queueTrackImage} />
+												<Image source={queueTrack.image} style={[styles.queueTrackImage, { backgroundColor: theme.imagePlaceholder }]} />
 												<View style={styles.queueTextWrap}>
-													<Text numberOfLines={1} style={styles.queueTrackTitle}>
+													<Text numberOfLines={1} style={[styles.queueTrackTitle, { color: theme.text }]}>
 														{queueTrack.title}
 													</Text>
-													<Text numberOfLines={1} style={styles.queueTrackArtist}>
+													<Text numberOfLines={1} style={[styles.queueTrackArtist, { color: theme.subText }]}>
 														{queueTrack.artist}
 													</Text>
 												</View>
@@ -599,7 +623,7 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 													<Ionicons
 														name="chevron-up"
 														size={20}
-														color={index === 0 ? '#B9B9B9' : '#444444'}
+														color={index === 0 ? theme.mutedText : theme.icon}
 													/>
 												</TouchableOpacity>
 												<TouchableOpacity
@@ -609,11 +633,11 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 													<Ionicons
 														name="chevron-down"
 														size={20}
-														color={index === queue.length - 1 ? '#B9B9B9' : '#444444'}
+														color={index === queue.length - 1 ? theme.mutedText : theme.icon}
 													/>
 												</TouchableOpacity>
 												<TouchableOpacity onPress={() => removeFromQueue(queueTrack.id)}>
-													<Ionicons name="trash-outline" size={18} color="#C53929" />
+													<Ionicons name="trash-outline" size={18} color={theme.danger} />
 												</TouchableOpacity>
 											</View>
 										</View>

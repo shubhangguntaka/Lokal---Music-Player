@@ -13,7 +13,7 @@ import {
 	Share,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 import { searchSongs, searchArtists, searchAlbums, SearchResult, getArtistName, formatDuration } from '../services/api';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePlayerStore } from '../store/playerStore';
@@ -40,6 +40,7 @@ interface SongItem {
 }
 
 const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
+	const theme = useThemeColors();
 	const [searchQuery, setSearchQuery] = useState('');
 	const [activeFilter, setActiveFilter] = useState<SearchFilter>('Songs');
 	const [isLoading, setIsLoading] = useState(false);
@@ -303,13 +304,13 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		: undefined;
 
 	const renderSearchResult = ({ item }: { item: SongItem }) => (
-		<TouchableOpacity style={styles.resultRow} onPress={() => handleResultPress(item)}>
-			<Image source={item.image} style={styles.resultImage} />
+		<TouchableOpacity style={[styles.resultRow, { borderBottomColor: theme.border }]} onPress={() => handleResultPress(item)}>
+			<Image source={item.image} style={[styles.resultImage, { backgroundColor: theme.imagePlaceholder }]} />
 			<View style={styles.resultTextContainer}>
-				<Text style={styles.resultTitle} numberOfLines={1}>
+				<Text style={[styles.resultTitle, { color: theme.text }]} numberOfLines={1}>
 					{item.title}
 				</Text>
-				<Text style={styles.resultSubtitle} numberOfLines={1}>
+				<Text style={[styles.resultSubtitle, { color: theme.subText }]} numberOfLines={1}>
 					{item.subtitle}
 				</Text>
 			</View>
@@ -318,7 +319,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 				onPress={() => handlePlaySong(item)}
 				disabled={activeFilter !== 'Songs' || !item.url}
 			>
-				<Ionicons name="play-circle" size={36} color={colors.primary} />
+				<Ionicons name="play-circle" size={36} color={theme.primary} />
 			</TouchableOpacity>
 			<TouchableOpacity
 				style={styles.moreButton}
@@ -331,31 +332,31 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 					openArtistOrAlbumOptions(item);
 				}}
 			>
-				<Feather name="more-vertical" size={20} color="#1A1A1A" />
+				<Feather name="more-vertical" size={20} color={theme.icon} />
 			</TouchableOpacity>
 		</TouchableOpacity>
 	);
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
 			{/* Search Header */}
 			<View style={styles.searchHeader}>
 				<TouchableOpacity onPress={onBackPress}>
-					<Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+					<Ionicons name="chevron-back" size={28} color={theme.icon} />
 				</TouchableOpacity>
-				<View style={styles.searchInputContainer}>
-					<Ionicons name="search" size={18} color="#999" />
+				<View style={[styles.searchInputContainer, { backgroundColor: theme.inputBackground }]}> 
+					<Ionicons name="search" size={18} color={theme.subText} />
 					<TextInput
-						style={styles.searchInput}
+						style={[styles.searchInput, { color: theme.text }]}
 						placeholder="Search songs, artists..."
 						value={searchQuery}
 						onChangeText={handleSearch}
-						placeholderTextColor="#999"
+						placeholderTextColor={theme.subText}
 						autoFocus
 					/>
 					{searchQuery ? (
 						<TouchableOpacity onPress={() => handleSearch('')}>
-							<Ionicons name="close-circle" size={20} color="#999" />
+							<Ionicons name="close-circle" size={20} color={theme.subText} />
 						</TouchableOpacity>
 					) : null}
 				</View>
@@ -374,13 +375,16 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 							key={filter}
 							style={[
 								styles.filterButton,
+								{ borderColor: theme.primary },
 								activeFilter === filter && styles.filterButtonActive,
+								activeFilter === filter && { backgroundColor: theme.primary },
 							]}
 							onPress={() => handleFilterChange(filter)}
 						>
 							<Text
 								style={[
 									styles.filterText,
+									{ color: theme.primary },
 									activeFilter === filter && styles.filterTextActive,
 								]}
 							>
@@ -392,37 +396,37 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 			)}
 
 			{/* Results or Recent Searches */}
-			<ScrollView style={styles.resultsContainer} showsVerticalScrollIndicator={false}>
+			<ScrollView style={[styles.resultsContainer, { backgroundColor: theme.background }]} showsVerticalScrollIndicator={false}>
 				{isLoading ? (
 					<View style={styles.loaderContainer}>
-						<ActivityIndicator size="large" color={colors.primary} />
+						<ActivityIndicator size="large" color={theme.primary} />
 					</View>
 				) : !hasSearched ? (
 					<View style={styles.recentSearchesContainer}>
 						<View style={styles.recentHeader}>
-							<Text style={styles.recentTitle}>Recent Searches</Text>
+							<Text style={[styles.recentTitle, { color: theme.text }]}>Recent Searches</Text>
 							{recentSearches.length > 0 && (
 								<TouchableOpacity onPress={handleClearAllRecentSearches}>
-									<Text style={styles.clearAllText}>Clear All</Text>
+									<Text style={[styles.clearAllText, { color: theme.primary }]}>Clear All</Text>
 								</TouchableOpacity>
 							)}
 						</View>
 						{recentSearches.length === 0 ? (
-							<Text style={styles.noRecentText}>No recent searches</Text>
+							<Text style={[styles.noRecentText, { color: theme.subText }]}>No recent searches</Text>
 						) : (
 							recentSearches.map((search, index) => (
 								<TouchableOpacity
 									key={index}
-									style={styles.recentSearchRow}
+									style={[styles.recentSearchRow, { borderBottomColor: theme.border }]}
 									onPress={() => handleRecentSearchClick(search)}
 									activeOpacity={0.7}
 								>
-									<Text style={styles.recentSearchText}>{search}</Text>
+									<Text style={[styles.recentSearchText, { color: theme.subText }]}>{search}</Text>
 									<TouchableOpacity
 										onPress={() => handleRemoveRecentSearch(search)}
 										style={styles.removeButton}
 									>
-										<Ionicons name="close" size={20} color="#999" />
+										<Ionicons name="close" size={20} color={theme.subText} />
 									</TouchableOpacity>
 								</TouchableOpacity>
 							))
@@ -430,11 +434,11 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 					</View>
 				) : results.length === 0 ? (
 					<View style={styles.notFoundContainer}>
-						<View style={styles.sadEmojiBackground}>
+						<View style={[styles.sadEmojiBackground, { backgroundColor: theme.primary }]}> 
 							<Text style={styles.sadEmoji}>😢</Text>
 						</View>
-						<Text style={styles.notFoundTitle}>Not Found</Text>
-						<Text style={styles.notFoundText}>
+						<Text style={[styles.notFoundTitle, { color: theme.text }]}>Not Found</Text>
+						<Text style={[styles.notFoundText, { color: theme.subText }]}> 
 							Sorry, the keyword you entered cannot be found, please check again or search with another keyword.
 						</Text>
 					</View>
@@ -464,7 +468,6 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#FFFFFF',
 	},
 	searchHeader: {
 		flexDirection: 'row',
@@ -479,14 +482,12 @@ const styles = StyleSheet.create({
 		marginLeft: 12,
 		paddingHorizontal: 14,
 		paddingVertical: 10,
-		backgroundColor: '#F5F5F5',
 		borderRadius: 20,
 	},
 	searchInput: {
 		flex: 1,
 		marginHorizontal: 8,
 		fontSize: 14,
-		color: '#1A1A1A',
 		padding: 0,
 	},
 	filterContainer: {
@@ -501,17 +502,14 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 18,
 		paddingVertical: 8,
 		borderWidth: 1.5,
-		borderColor: colors.primary,
 		borderRadius: 20,
 		backgroundColor: 'transparent',
 	},
 	filterButtonActive: {
-		backgroundColor: colors.primary,
 	},
 	filterText: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: colors.primary,
 	},
 	filterTextActive: {
 		color: '#FFFFFF',
@@ -539,16 +537,13 @@ const styles = StyleSheet.create({
 	recentTitle: {
 		fontSize: 18,
 		fontWeight: '700',
-		color: '#1A1A1A',
 	},
 	clearAllText: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: colors.primary,
 	},
 	noRecentText: {
 		fontSize: 14,
-		color: '#999999',
 		textAlign: 'center',
 		paddingVertical: 24,
 	},
@@ -558,11 +553,9 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		paddingVertical: 14,
 		borderBottomWidth: 1,
-		borderBottomColor: '#F0F0F0',
 	},
 	recentSearchText: {
 		fontSize: 14,
-		color: '#666666',
 	},
 	removeButton: {
 		padding: 4,
@@ -575,13 +568,11 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: '#F5F5F5',
 	},
 	resultImage: {
 		width: 72,
 		height: 72,
 		borderRadius: 16,
-		backgroundColor: '#ECECEC',
 		marginRight: 12,
 	},
 	resultTextContainer: {
@@ -590,12 +581,10 @@ const styles = StyleSheet.create({
 	resultTitle: {
 		fontSize: 15,
 		fontWeight: '700',
-		color: '#1A1A1A',
 		marginBottom: 3,
 	},
 	resultSubtitle: {
 		fontSize: 12,
-		color: '#999999',
 	},
 	playButton: {
 		marginHorizontal: 8,
@@ -613,7 +602,6 @@ const styles = StyleSheet.create({
 		width: 120,
 		height: 120,
 		borderRadius: 60,
-		backgroundColor: colors.primary,
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 24,
@@ -624,12 +612,10 @@ const styles = StyleSheet.create({
 	notFoundTitle: {
 		fontSize: 20,
 		fontWeight: '700',
-		color: '#1A1A1A',
 		marginBottom: 8,
 	},
 	notFoundText: {
 		fontSize: 14,
-		color: '#666666',
 		textAlign: 'center',
 		paddingHorizontal: 24,
 		lineHeight: 20,

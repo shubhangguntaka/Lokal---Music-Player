@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
 import { PlayerTrack } from '../components/Player';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
 	formatDuration,
@@ -57,6 +57,7 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 	onBackPress,
 	onSearchPress,
 }) => {
+	const theme = useThemeColors();
 	const [playingSongId, setPlayingSongId] = useState<string | null>(null);
 	const [relatedSongs, setRelatedSongs] = useState<SongItem[]>([]);
 	const [isLoadingSongs, setIsLoadingSongs] = useState(false);
@@ -269,13 +270,13 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 		const isPlaying = playingSongId === item.id;
 
 		return (
-			<View style={styles.songRow}>
-				<Image source={item.image} style={styles.songImage} />
+			<View style={[styles.songRow, { borderBottomColor: theme.border }]}> 
+				<Image source={item.image} style={[styles.songImage, { backgroundColor: theme.imagePlaceholder }]} />
 				<View style={styles.songTextContainer}>
-					<Text style={styles.songTitle} numberOfLines={1}>
+					<Text style={[styles.songTitle, { color: theme.text }]} numberOfLines={1}>
 						{item.title}
 					</Text>
-					<Text style={styles.songArtist} numberOfLines={1}>
+					<Text style={[styles.songArtist, { color: theme.subText }]} numberOfLines={1}>
 						{item.artist}{item.duration ? ` | ${item.duration}` : ''}
 					</Text>
 				</View>
@@ -299,29 +300,29 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 					<Ionicons
 						name={isPlaying ? 'pause-circle' : 'play-circle'}
 						size={36}
-						color={colors.primary}
+						color={theme.primary}
 					/>
 				</TouchableOpacity>
 				<TouchableOpacity style={styles.moreButton} onPress={() => openSongOptionsModal(item)}>
-					<Feather name="more-vertical" size={20} color="#1A1A1A" />
+					<Feather name="more-vertical" size={20} color={theme.icon} />
 				</TouchableOpacity>
 			</View>
 		);
 	};
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
 			{/* Header */}
-			<View style={styles.header}>
+			<View style={[styles.header, { borderBottomColor: theme.border }]}> 
 				<TouchableOpacity onPress={onBackPress}>
-					<Ionicons name="chevron-back" size={28} color="#1A1A1A" />
+					<Ionicons name="chevron-back" size={28} color={theme.icon} />
 				</TouchableOpacity>
 				<View style={styles.headerActions}>
 					<TouchableOpacity onPress={onSearchPress}>
-						<Ionicons name="search" size={24} color="#1A1A1A" />
+						<Ionicons name="search" size={24} color={theme.icon} />
 					</TouchableOpacity>
 					<TouchableOpacity style={{ marginLeft: 16 }} onPress={openArtistOptionsModal}>
-						<Ionicons name="ellipsis-horizontal" size={24} color="#1A1A1A" />
+						<Ionicons name="ellipsis-horizontal" size={24} color={theme.icon} />
 					</TouchableOpacity>
 				</View>
 			</View>
@@ -329,12 +330,12 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 			<ScrollView showsVerticalScrollIndicator={false} style={styles.content}>
 				{/* Artist Image */}
 				<View style={styles.imageContainer}>
-					<Image source={artistImage} style={styles.artistImage} />
+					<Image source={artistImage} style={[styles.artistImage, { backgroundColor: theme.imagePlaceholder }]} />
 				</View>
 
 				{/* Artist Info */}
-				<Text style={styles.artistName}>{artistName}</Text>
-				<Text style={styles.artistMeta}>
+				<Text style={[styles.artistName, { color: theme.text }]}>{artistName}</Text>
+				<Text style={[styles.artistMeta, { color: theme.subText }]}>
 					{albums} Album | {relatedSongs.length || songs} Songs | {totalDuration}
 				</Text>
 
@@ -352,26 +353,26 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 						<Text style={styles.shuffleButtonText}>Shuffle</Text>
 					</TouchableOpacity>
 					<TouchableOpacity
-						style={styles.playButton2}
+						style={[styles.playButton2, { backgroundColor: theme.surfaceMuted }]}
 						onPress={() => {
 							if (!playbackQueue.length) return;
 							onPlaySong?.(playbackQueue[0], playbackQueue);
 						}}
 					>
-						<Ionicons name="play" size={20} color={colors.primary} />
-						<Text style={styles.playButtonText}>Play</Text>
+						<Ionicons name="play" size={20} color={theme.primary} />
+						<Text style={[styles.playButtonText, { color: theme.primary }]}>Play</Text>
 					</TouchableOpacity>
 				</View>
 
 				{/* Songs Section */}
 				<View style={styles.songsSection}>
 					<View style={styles.songsSectionHeader}>
-						<Text style={styles.songsSectionTitle}>Songs</Text>
+						<Text style={[styles.songsSectionTitle, { color: theme.text }]}>Songs</Text>
 						<TouchableOpacity
 							onPress={() => setShowAllSongs((prev) => !prev)}
 							disabled={relatedSongs.length <= 6}
 						>
-							<Text style={styles.seeAllText}>
+							<Text style={[styles.seeAllText, { color: theme.primary }]}> 
 								{showAllSongs ? 'Show Less' : 'See All'}
 							</Text>
 						</TouchableOpacity>
@@ -379,10 +380,10 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 
 					{isLoadingSongs ? (
 						<View style={styles.loadingWrap}>
-							<ActivityIndicator size="small" color={colors.primary} />
+							<ActivityIndicator size="small" color={theme.primary} />
 						</View>
 					) : relatedSongs.length === 0 ? (
-						<Text style={styles.emptyText}>No related songs found</Text>
+						<Text style={[styles.emptyText, { color: theme.subText }]}>No related songs found</Text>
 					) : (
 						<FlatList
 							data={visibleSongs}
@@ -414,7 +415,6 @@ const ArtistsScreen: React.FC<ArtistDetailScreenProps> = ({
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#FFFFFF',
 	},
 	header: {
 		flexDirection: 'row',
@@ -423,7 +423,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: '#ECECEC',
 	},
 	headerActions: {
 		flexDirection: 'row',
@@ -441,19 +440,16 @@ const styles = StyleSheet.create({
 		width: 260,
 		height: 260,
 		borderRadius: 40,
-		backgroundColor: '#ECECEC',
 	},
 	artistName: {
 		fontSize: 28,
 		fontWeight: '700',
-		color: '#1A1A1A',
 		textAlign: 'center',
 		marginHorizontal: 16,
 		marginBottom: 8,
 	},
 	artistMeta: {
 		fontSize: 14,
-		color: '#666666',
 		textAlign: 'center',
 		marginHorizontal: 16,
 		marginBottom: 24,
@@ -469,7 +465,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		backgroundColor: colors.primary,
+		backgroundColor: '#FF7A00',
 		paddingVertical: 14,
 		borderRadius: 24,
 		gap: 8,
@@ -484,7 +480,6 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		backgroundColor: '#FFF3E7',
 		paddingVertical: 14,
 		borderRadius: 24,
 		gap: 8,
@@ -492,7 +487,6 @@ const styles = StyleSheet.create({
 	playButtonText: {
 		fontSize: 16,
 		fontWeight: '700',
-		color: colors.primary,
 	},
 	songsSection: {
 		paddingHorizontal: 16,
@@ -507,12 +501,10 @@ const styles = StyleSheet.create({
 	songsSectionTitle: {
 		fontSize: 18,
 		fontWeight: '700',
-		color: '#1A1A1A',
 	},
 	seeAllText: {
 		fontSize: 14,
 		fontWeight: '600',
-		color: colors.primary,
 	},
 	songsList: {
 		paddingTop: 8,
@@ -523,7 +515,6 @@ const styles = StyleSheet.create({
 	},
 	emptyText: {
 		fontSize: 14,
-		color: '#777777',
 		paddingVertical: 20,
 		textAlign: 'center',
 	},

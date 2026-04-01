@@ -10,11 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
 
 const PlaylistsScreen = () => {
+    const theme = useThemeColors();
     const playlists = useLibraryStore((state) => state.playlists);
     const createPlaylist = useLibraryStore((state) => state.createPlaylist);
     const removeTrackFromPlaylist = useLibraryStore((state) => state.removeTrackFromPlaylist);
@@ -32,10 +33,10 @@ const PlaylistsScreen = () => {
     );
 
     return (
-        <SafeAreaView style={styles.screen}>
+        <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}> 
             <View style={styles.headerRow}>
-                <Text style={styles.title}>Playlists</Text>
-                <TouchableOpacity style={styles.createButton} onPress={() => createPlaylist()}>
+                <Text style={[styles.title, { color: theme.text }]}>Playlists</Text>
+                <TouchableOpacity style={[styles.createButton, { backgroundColor: theme.primary }]} onPress={() => createPlaylist()}>
                     <Ionicons name="add" size={18} color="#FFFFFF" />
                     <Text style={styles.createButtonText}>New</Text>
                 </TouchableOpacity>
@@ -51,13 +52,32 @@ const PlaylistsScreen = () => {
                     return (
                         <TouchableOpacity
                             key={playlist.id}
-                            style={[styles.playlistChip, isActive && styles.playlistChipActive]}
+                            style={[
+                                styles.playlistChip,
+                                { backgroundColor: theme.surfaceMuted },
+                                isActive && styles.playlistChipActive,
+                                isActive && { backgroundColor: theme.softPrimary },
+                            ]}
                             onPress={() => setSelectedPlaylistId(playlist.id)}
                         >
-                            <Text style={[styles.playlistChipText, isActive && styles.playlistChipTextActive]}>
+                            <Text
+                                style={[
+                                    styles.playlistChipText,
+                                    { color: theme.subText },
+                                    isActive && styles.playlistChipTextActive,
+                                    isActive && { color: theme.primary },
+                                ]}
+                            >
                                 {playlist.name}
                             </Text>
-                            <Text style={[styles.playlistCount, isActive && styles.playlistChipTextActive]}>
+                            <Text
+                                style={[
+                                    styles.playlistCount,
+                                    { color: theme.mutedText },
+                                    isActive && styles.playlistChipTextActive,
+                                    isActive && { color: theme.primary },
+                                ]}
+                            >
                                 {playlist.tracks.length}
                             </Text>
                         </TouchableOpacity>
@@ -67,9 +87,9 @@ const PlaylistsScreen = () => {
 
             {!selectedPlaylist || selectedPlaylist.tracks.length === 0 ? (
                 <View style={styles.emptyWrap}>
-                    <Ionicons name="musical-notes-outline" size={52} color="#B8B8B8" />
-                    <Text style={styles.emptyTitle}>Playlist is empty</Text>
-                    <Text style={styles.emptySubtitle}>Add songs from Home, Search, Artist, or Album options.</Text>
+                    <Ionicons name="musical-notes-outline" size={52} color={theme.mutedText} />
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>Playlist is empty</Text>
+                    <Text style={[styles.emptySubtitle, { color: theme.subText }]}>Add songs from Home, Search, Artist, or Album options.</Text>
                 </View>
             ) : (
                 <FlatList
@@ -77,24 +97,24 @@ const PlaylistsScreen = () => {
                     keyExtractor={(item) => item.id}
                     contentContainerStyle={styles.listContent}
                     renderItem={({ item }) => (
-                        <View style={styles.row}>
-                            <Image source={item.image} style={styles.image} />
+                        <View style={[styles.row, { borderBottomColor: theme.border }]}> 
+                            <Image source={item.image} style={[styles.image, { backgroundColor: theme.imagePlaceholder }]} />
                             <View style={styles.textWrap}>
-                                <Text numberOfLines={1} style={styles.songTitle}>{item.title}</Text>
-                                <Text numberOfLines={1} style={styles.songArtist}>{item.artist}</Text>
+                                <Text numberOfLines={1} style={[styles.songTitle, { color: theme.text }]}>{item.title}</Text>
+                                <Text numberOfLines={1} style={[styles.songArtist, { color: theme.subText }]}>{item.artist}</Text>
                             </View>
                             <TouchableOpacity
                                 style={styles.iconButton}
                                 onPress={() => item.url && playSong(item, playableQueue.length ? playableQueue : [item])}
                                 disabled={!item.url}
                             >
-                                <Ionicons name="play-circle" size={34} color={colors.primary} />
+                                <Ionicons name="play-circle" size={34} color={theme.primary} />
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.iconButton}
                                 onPress={() => selectedPlaylist && removeTrackFromPlaylist(selectedPlaylist.id, item.id)}
                             >
-                                <Ionicons name="trash-outline" size={22} color="#8E8E8E" />
+                                <Ionicons name="trash-outline" size={22} color={theme.subText} />
                             </TouchableOpacity>
                         </View>
                     )}
@@ -109,7 +129,6 @@ export default PlaylistsScreen;
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: '#FFFFFF',
         paddingHorizontal: 16,
     },
     headerRow: {
@@ -122,12 +141,10 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 28,
         fontWeight: '700',
-        color: '#1A1A1A',
     },
     createButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: colors.primary,
         borderRadius: 16,
         paddingVertical: 8,
         paddingHorizontal: 12,
@@ -149,24 +166,19 @@ const styles = StyleSheet.create({
         paddingVertical: 8,
         paddingHorizontal: 12,
         borderRadius: 16,
-        backgroundColor: '#F2F2F2',
         gap: 6,
     },
     playlistChipActive: {
-        backgroundColor: '#FFF1E2',
     },
     playlistChipText: {
         fontSize: 13,
         fontWeight: '600',
-        color: '#666666',
     },
     playlistChipTextActive: {
-        color: colors.primary,
     },
     playlistCount: {
         fontSize: 12,
         fontWeight: '700',
-        color: '#777777',
     },
     emptyWrap: {
         flex: 1,
@@ -178,11 +190,9 @@ const styles = StyleSheet.create({
     emptyTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1A1A1A',
     },
     emptySubtitle: {
         fontSize: 14,
-        color: '#6F6F6F',
         textAlign: 'center',
     },
     listContent: {
@@ -199,7 +209,6 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 16,
-        backgroundColor: '#EAEAEA',
         marginRight: 12,
     },
     textWrap: {
@@ -208,12 +217,10 @@ const styles = StyleSheet.create({
     songTitle: {
         fontSize: 16,
         fontWeight: '700',
-        color: '#1A1A1A',
         marginBottom: 4,
     },
     songArtist: {
         fontSize: 13,
-        color: '#8B8B8B',
     },
     iconButton: {
         paddingHorizontal: 6,

@@ -8,7 +8,7 @@ import {
 	View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 
 export type PlayerTrack = {
 	id: string;
@@ -33,17 +33,19 @@ const Player: React.FC<PlayerProps> = ({
 	onTogglePlay,
 	onNext,
 }) => {
+	const theme = useThemeColors();
+
 	return (
-		<View style={styles.container}>
+		<View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}> 
 			<TouchableOpacity
 				style={styles.trackPressArea}
 				activeOpacity={0.85}
 				onPress={onOpen}
 			>
-				<Image source={currentTrack.image} style={styles.artwork} />
+				<Image source={currentTrack.image} style={[styles.artwork, { backgroundColor: theme.imagePlaceholder }]} />
 
 				<View style={styles.trackInfo}>
-					<Text style={styles.trackTitle} numberOfLines={1}>
+					<Text style={[styles.trackTitle, { color: theme.text }]} numberOfLines={1}>
 						{currentTrack.title} - {currentTrack.artist}
 					</Text>
 				</View>
@@ -54,12 +56,12 @@ const Player: React.FC<PlayerProps> = ({
 					<Ionicons
 						name={isPlaying ? 'pause' : 'play'}
 						size={30}
-						color={colors.primary}
+						color={theme.primary}
 					/>
 				</TouchableOpacity>
 
 				<TouchableOpacity style={styles.controlButton} onPress={onNext}>
-					<Ionicons name="play-skip-forward" size={30} color={colors.primary} />
+					<Ionicons name="play-skip-forward" size={30} color={theme.primary} />
 				</TouchableOpacity>
 			</View>
 		</View>
@@ -69,7 +71,7 @@ const Player: React.FC<PlayerProps> = ({
 const styles = StyleSheet.create({
 	container: {
 		height: 80,
-		backgroundColor: '#FFFFFF',
+		borderWidth: 1,
 		borderRadius: 18,
 		paddingHorizontal: 16,
 		flexDirection: 'row',
@@ -84,7 +86,6 @@ const styles = StyleSheet.create({
 		width: 56,
 		height: 56,
 		borderRadius: 12,
-		backgroundColor: '#EAEAEA',
 	},
 	trackInfo: {
 		flex: 1,
@@ -94,7 +95,6 @@ const styles = StyleSheet.create({
 	trackTitle: {
 		fontSize: 28 / 2,
 		fontWeight: '600',
-		color: '#1A1A1A',
 	},
 	controls: {
 		flexDirection: 'row',

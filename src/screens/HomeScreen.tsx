@@ -21,7 +21,7 @@ import Header from '../components/Header';
 import { PlayerTrack } from '../components/Player';
 import SectionHeader from '../components/SectionHeader';
 import TabBar from '../components/TabBar';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
 	formatDuration,
@@ -178,6 +178,7 @@ const artistOptions = ['Play', 'Play Next', 'Add to Playing Queue', 'Add to Play
 const albumOptions = ['Play', 'Play Next', 'Add to Playing Queue', 'Add to Playlist', 'Go to Artist', 'Details', 'Share'];
 
 const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist: ArtistItem) => void; onAlbumPress?: (album: AlbumItem) => void; onPlaySong?: (song: PlayerTrack, queue: PlayerTrack[]) => void }> = ({ onSearchPress, onArtistPress, onAlbumPress, onPlaySong }) => {
+	const theme = useThemeColors();
 	const [activeTab, setActiveTab] = useState<HomeTab>('Suggested');
 	const pagerRef = useRef<ScrollView>(null);
 	const { width } = useWindowDimensions();
@@ -759,12 +760,12 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 
 	const renderSongCard = ({ item }: { item: MusicItem }) => (
 		<TouchableOpacity style={styles.songCard} onPress={() => handlePlayMusicCard(item)}>
-			<Image source={item.image} style={styles.songImage} />
-			<Text style={styles.songTitle} numberOfLines={2}>
+			<Image source={item.image} style={[styles.songImage, { backgroundColor: theme.imagePlaceholder }]} />
+			<Text style={[styles.songTitle, { color: theme.text }]} numberOfLines={2}>
 				{item.title}
 			</Text>
 			{!!item.artist && (
-				<Text style={styles.songArtist} numberOfLines={1}>
+				<Text style={[styles.songArtist, { color: theme.subText }]} numberOfLines={1}>
 					{item.artist}
 				</Text>
 			)}
@@ -791,8 +792,8 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				})
 			}
 		>
-			<Image source={item.image} style={styles.artistImage} />
-			<Text style={styles.artistName} numberOfLines={1}>
+			<Image source={item.image} style={[styles.artistImage, { backgroundColor: theme.imagePlaceholder }]} />
+			<Text style={[styles.artistName, { color: theme.text }]} numberOfLines={1}>
 				{item.name}
 			</Text>
 		</TouchableOpacity>
@@ -808,12 +809,12 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				})
 			}
 		>
-			<Image source={item.image} style={styles.artistRowImage} />
+			<Image source={item.image} style={[styles.artistRowImage, { backgroundColor: theme.imagePlaceholder }]} />
 			<View style={styles.artistRowTextContainer}>
-				<Text style={styles.artistRowName} numberOfLines={1}>
+				<Text style={[styles.artistRowName, { color: theme.text }]} numberOfLines={1}>
 					{item.name}
 				</Text>
-				<Text style={styles.artistRowMeta}>
+				<Text style={[styles.artistRowMeta, { color: theme.subText }]}> 
 					{item.albums} Album | {item.songs} Songs
 				</Text>
 			</View>
@@ -821,7 +822,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				style={styles.artistMoreButton}
 				onPress={() => handleOpenArtistOptions(item)}
 			>
-				<Feather name="more-vertical" size={24} color="#1A1A1A" />
+				<Feather name="more-vertical" size={24} color={theme.icon} />
 			</TouchableOpacity>
 		</TouchableOpacity>
 	);
@@ -837,23 +838,23 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 			}
 		>
 			<View style={styles.albumCardWrapper}>
-				<Image source={item.image} style={styles.albumCardImage} />
+				<Image source={item.image} style={[styles.albumCardImage, { backgroundColor: theme.imagePlaceholder }]} />
 			</View>
 			<View style={styles.albumTitleRow}>
-				<Text style={styles.albumCardTitle} numberOfLines={1}>
+				<Text style={[styles.albumCardTitle, { color: theme.text }]} numberOfLines={1}>
 					{item.title}
 				</Text>
 				<TouchableOpacity
 					style={styles.albumMoreButton}
 					onPress={() => handleOpenAlbumOptions(item)}
 				>
-					<Feather name="more-vertical" size={22} color="#1A1A1A" />
+					<Feather name="more-vertical" size={22} color={theme.icon} />
 				</TouchableOpacity>
 			</View>
-			<Text style={styles.albumCardMeta} numberOfLines={1}>
+			<Text style={[styles.albumCardMeta, { color: theme.subText }]} numberOfLines={1}>
 				{item.artist} | {item.year}
 			</Text>
-			<Text style={styles.albumCardSongs}>
+			<Text style={[styles.albumCardSongs, { color: theme.mutedText }]}> 
 				{item.songs} songs
 			</Text>
 		</TouchableOpacity>
@@ -878,13 +879,13 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 
 		return (
 			<View style={styles.songsRow}>
-				<Image source={item.image} style={styles.songsRowImage} />
+				<Image source={item.image} style={[styles.songsRowImage, { backgroundColor: theme.imagePlaceholder }]} />
 
 				<View style={styles.songsTextContainer}>
-					<Text style={styles.songsTitle} numberOfLines={1}>
+					<Text style={[styles.songsTitle, { color: theme.text }]} numberOfLines={1}>
 						{item.title}
 					</Text>
-					<Text style={styles.songsMeta} numberOfLines={1}>
+					<Text style={[styles.songsMeta, { color: theme.subText }]} numberOfLines={1}>
 						{item.artist} {'  |  '} {item.duration}
 					</Text>
 				</View>
@@ -908,7 +909,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					<Ionicons
 						name={isPlaying ? 'pause' : 'play'}
 						size={24}
-						color={colors.primary}
+						color={theme.primary}
 					/>
 				</TouchableOpacity>
 
@@ -916,7 +917,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					style={styles.moreButton}
 					onPress={() => handleOpenSongOptions(item)}
 				>
-					<Feather name="more-vertical" size={24} color="#1A1A1A" />
+					<Feather name="more-vertical" size={24} color={theme.icon} />
 				</TouchableOpacity>
 			</View>
 		);
@@ -1019,29 +1020,29 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 
 	const renderSongsTab = () => (
 		<View style={styles.songsTabContainer}>
-			<View style={styles.songsHeaderRow}>
-				<Text style={styles.songCountText}>{filteredSongsData.length} songs</Text>
+			<View style={[styles.songsHeaderRow, { borderBottomColor: theme.border }]}> 
+				<Text style={[styles.songCountText, { color: theme.text }]}>{filteredSongsData.length} songs</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
 				>
-					<Text style={styles.sortButtonText}>{currentSort}</Text>
-					<Ionicons name="swap-vertical" size={22} color={colors.primary} />
+					<Text style={[styles.sortButtonText, { color: theme.primary }]}>{currentSort}</Text>
+					<Ionicons name="swap-vertical" size={22} color={theme.primary} />
 				</TouchableOpacity>
 			</View>
 
-			<View style={styles.songsSearchInputWrap}>
-				<Ionicons name="search" size={18} color="#8B8B8B" />
+			<View style={[styles.songsSearchInputWrap, { backgroundColor: theme.inputBackground }]}> 
+				<Ionicons name="search" size={18} color={theme.subText} />
 				<TextInput
-					style={styles.songsSearchInput}
+					style={[styles.songsSearchInput, { color: theme.text }]}
 					value={songsSearchQuery}
 					onChangeText={setSongsSearchQuery}
 					placeholder="Search in songs"
-					placeholderTextColor="#9A9A9A"
+					placeholderTextColor={theme.subText}
 				/>
 				{songsSearchQuery ? (
 					<TouchableOpacity onPress={() => setSongsSearchQuery('')}>
-						<Ionicons name="close-circle" size={18} color="#8B8B8B" />
+						<Ionicons name="close-circle" size={18} color={theme.subText} />
 					</TouchableOpacity>
 				) : null}
 			</View>
@@ -1056,14 +1057,14 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					}
 				}}
 				onEndReachedThreshold={0.4}
-				ListEmptyComponent={<Text style={styles.noSongsText}>No songs match your search.</Text>}
+				ListEmptyComponent={<Text style={[styles.noSongsText, { color: theme.subText }]}>No songs match your search.</Text>}
 				ListFooterComponent={
 					hasMoreSongs ? (
 						<TouchableOpacity
-							style={styles.loadMoreButton}
+							style={[styles.loadMoreButton, { backgroundColor: theme.softPrimary }]}
 							onPress={() => setSongsVisibleCount((prev) => Math.min(prev + SONGS_PAGE_SIZE, filteredSongsData.length))}
 						>
-							<Text style={styles.loadMoreText}>Load More</Text>
+							<Text style={[styles.loadMoreText, { color: theme.primary }]}>Load More</Text>
 						</TouchableOpacity>
 					) : null
 				}
@@ -1075,14 +1076,14 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 
 	const renderArtistsTab = () => (
 		<View style={styles.artistsTabContainer}>
-			<View style={styles.artistsHeaderRow}>
-				<Text style={styles.artistCountText}>{artistsData.length} artists</Text>
+			<View style={[styles.artistsHeaderRow, { borderBottomColor: theme.border }]}> 
+				<Text style={[styles.artistCountText, { color: theme.text }]}>{artistsData.length} artists</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
 				>
-					<Text style={styles.sortButtonText}>{currentSort}</Text>
-					<Ionicons name="swap-vertical" size={22} color={colors.primary} />
+					<Text style={[styles.sortButtonText, { color: theme.primary }]}>{currentSort}</Text>
+					<Ionicons name="swap-vertical" size={22} color={theme.primary} />
 				</TouchableOpacity>
 			</View>
 
@@ -1098,14 +1099,14 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 
 	const renderAlbumsTab = () => (
 		<View style={styles.albumsTabContainer}>
-			<View style={styles.albumsHeaderRow}>
-				<Text style={styles.albumCountText}>{albumsData.length} albums</Text>
+			<View style={[styles.albumsHeaderRow, { borderBottomColor: theme.border }]}> 
+				<Text style={[styles.albumCountText, { color: theme.text }]}>{albumsData.length} albums</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
 				>
-					<Text style={styles.sortButtonText}>{currentSort}</Text>
-					<Ionicons name="swap-vertical" size={22} color={colors.primary} />
+					<Text style={[styles.sortButtonText, { color: theme.primary }]}>{currentSort}</Text>
+					<Ionicons name="swap-vertical" size={22} color={theme.primary} />
 				</TouchableOpacity>
 			</View>
 
@@ -1122,7 +1123,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	);
 
 	return (
-		<SafeAreaView style={styles.screen}>
+		<SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}> 
 			<Header onSearchPress={onSearchPress} />
 			<TabBar tabs={tabs} activeTab={activeTab} onTabPress={(tab) => handleChangeTab(tab as HomeTab)} />
 
@@ -1152,21 +1153,21 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				onRequestClose={() => setSortModalVisible(false)}
 			>
 				<TouchableOpacity
-					style={styles.modalOverlay}
+					style={[styles.modalOverlay, { backgroundColor: theme.overlayLight }]}
 					activeOpacity={1}
 					onPress={() => setSortModalVisible(false)}
 				>
-					<View style={styles.sortModalCard}>
+					<View style={[styles.sortModalCard, { backgroundColor: theme.surface }]}> 
 						{sortOptions.map((option) => {
 							const isSelected = option === currentSort;
 
 							return (
 								<TouchableOpacity
 									key={option}
-									style={styles.sortOptionRow}
+									style={[styles.sortOptionRow, { borderBottomColor: theme.border }]}
 									onPress={() => applySortForActiveTab(option)}
 								>
-									<Text style={styles.sortOptionText}>{option}</Text>
+									<Text style={[styles.sortOptionText, { color: theme.text }]}>{option}</Text>
 									<View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
 										{isSelected && <View style={styles.radioInner} />}
 									</View>
@@ -1184,21 +1185,21 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				onRequestClose={closeSongOptions}
 			>
 				<TouchableOpacity
-					style={styles.modalOverlayDark}
+					style={[styles.modalOverlayDark, { backgroundColor: theme.overlay }]}
 					activeOpacity={1}
 					onPress={closeSongOptions}
 				>
-					<View style={styles.optionsSheet}>
-						<View style={styles.sheetHandle} />
+					<View style={[styles.optionsSheet, { backgroundColor: theme.surface }]}> 
+						<View style={[styles.sheetHandle, { backgroundColor: theme.handle }]} />
 
 						{selectedSong && (
 							<View style={styles.sheetSongHeader}>
 								<Image source={selectedSong.image} style={styles.sheetSongImage} />
 								<View style={styles.sheetSongTextWrap}>
-									<Text style={styles.sheetSongTitle} numberOfLines={1}>
+									<Text style={[styles.sheetSongTitle, { color: theme.text }]} numberOfLines={1}>
 										{selectedSong.title}
 									</Text>
-									<Text style={styles.sheetSongMeta} numberOfLines={1}>
+									<Text style={[styles.sheetSongMeta, { color: theme.subText }]} numberOfLines={1}>
 										{selectedSong.artist} {'  |  '} {selectedSong.duration}
 									</Text>
 								</View>
@@ -1208,13 +1209,13 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 									<Ionicons
 										name={isFavourite(selectedSong.id) ? 'heart' : 'heart-outline'}
 										size={34}
-										color={isFavourite(selectedSong.id) ? '#F04438' : '#1A1A1A'}
+										color={isFavourite(selectedSong.id) ? '#F04438' : theme.icon}
 									/>
 								</TouchableOpacity>
 							</View>
 						)}
 
-						<View style={styles.sheetDivider} />
+						<View style={[styles.sheetDivider, { backgroundColor: theme.border }]} />
 
 						<ScrollView showsVerticalScrollIndicator={false}>
 							{songOptionsForSheet.map((option) => (
@@ -1225,7 +1226,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 										void handleSongOptionPress(option);
 									}}
 								>
-									<Text style={styles.sheetOptionText}>{option}</Text>
+									<Text style={[styles.sheetOptionText, { color: theme.text }]}>{option}</Text>
 								</TouchableOpacity>
 							))}
 						</ScrollView>
@@ -1240,28 +1241,28 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				onRequestClose={closeArtistOptions}
 			>
 				<TouchableOpacity
-					style={styles.modalOverlayDark}
+					style={[styles.modalOverlayDark, { backgroundColor: theme.overlay }]}
 					activeOpacity={1}
 					onPress={closeArtistOptions}
 				>
-					<View style={styles.optionsSheet}>
-						<View style={styles.sheetHandle} />
+					<View style={[styles.optionsSheet, { backgroundColor: theme.surface }]}> 
+						<View style={[styles.sheetHandle, { backgroundColor: theme.handle }]} />
 
 						{selectedArtist && (
 							<View style={styles.sheetArtistHeader}>
 								<Image source={selectedArtist.image} style={styles.sheetArtistImage} />
 								<View style={styles.sheetArtistTextWrap}>
-									<Text style={styles.sheetArtistName} numberOfLines={1}>
+									<Text style={[styles.sheetArtistName, { color: theme.text }]} numberOfLines={1}>
 										{selectedArtist.name}
 									</Text>
-									<Text style={styles.sheetArtistMeta} numberOfLines={1}>
+									<Text style={[styles.sheetArtistMeta, { color: theme.subText }]} numberOfLines={1}>
 										{selectedArtist.albums} Album | {selectedArtist.songs} Songs
 									</Text>
 								</View>
 							</View>
 						)}
 
-						<View style={styles.sheetDivider} />
+						<View style={[styles.sheetDivider, { backgroundColor: theme.border }]} />
 
 						<ScrollView showsVerticalScrollIndicator={false}>
 							{artistOptions.map((option) => (
@@ -1272,7 +1273,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 										void handleArtistOptionPress(option);
 									}}
 								>
-									<Text style={styles.sheetOptionText}>{option}</Text>
+									<Text style={[styles.sheetOptionText, { color: theme.text }]}>{option}</Text>
 								</TouchableOpacity>
 							))}
 						</ScrollView>
@@ -1287,31 +1288,31 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				onRequestClose={closeAlbumOptions}
 			>
 				<TouchableOpacity
-					style={styles.modalOverlayDark}
+					style={[styles.modalOverlayDark, { backgroundColor: theme.overlay }]}
 					activeOpacity={1}
 					onPress={closeAlbumOptions}
 				>
-					<View style={styles.optionsSheet}>
-						<View style={styles.sheetHandle} />
+					<View style={[styles.optionsSheet, { backgroundColor: theme.surface }]}> 
+						<View style={[styles.sheetHandle, { backgroundColor: theme.handle }]} />
 
 						{selectedAlbum && (
 							<View style={styles.sheetAlbumHeader}>
 								<Image source={selectedAlbum.image} style={styles.sheetAlbumImage} />
 								<View style={styles.sheetAlbumTextWrap}>
-									<Text style={styles.sheetAlbumTitle} numberOfLines={1}>
+									<Text style={[styles.sheetAlbumTitle, { color: theme.text }]} numberOfLines={1}>
 										{selectedAlbum.title}
 									</Text>
-									<Text style={styles.sheetAlbumMeta} numberOfLines={1}>
+									<Text style={[styles.sheetAlbumMeta, { color: theme.subText }]} numberOfLines={1}>
 										{selectedAlbum.artist} | {selectedAlbum.year}
 									</Text>
-									<Text style={styles.sheetAlbumSongs}>
+									<Text style={[styles.sheetAlbumSongs, { color: theme.mutedText }]}> 
 										{selectedAlbum.songs} songs
 									</Text>
 								</View>
 							</View>
 						)}
 
-						<View style={styles.sheetDivider} />
+						<View style={[styles.sheetDivider, { backgroundColor: theme.border }]} />
 
 						<ScrollView showsVerticalScrollIndicator={false}>
 							{albumOptions.map((option) => (
@@ -1322,7 +1323,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 										void handleAlbumOptionPress(option);
 									}}
 								>
-									<Text style={styles.sheetOptionText}>{option}</Text>
+									<Text style={[styles.sheetOptionText, { color: theme.text }]}>{option}</Text>
 								</TouchableOpacity>
 							))}
 						</ScrollView>
@@ -1336,7 +1337,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 const styles = StyleSheet.create({
 	screen: {
 		flex: 1,
-		backgroundColor: colors.background,
+		backgroundColor: '#FFFFFF',
 	},
 	pager: {
 		flex: 1,
@@ -1391,7 +1392,7 @@ const styles = StyleSheet.create({
 	sortButtonText: {
 		fontSize: 28 / 2,
 		fontWeight: '700',
-		color: colors.primary,
+		color: '#FF7A00',
 	},
 	songsListContent: {
 		paddingBottom: 24,
@@ -1413,7 +1414,7 @@ const styles = StyleSheet.create({
 	loadMoreText: {
 		fontSize: 13,
 		fontWeight: '700',
-		color: colors.primary,
+		color: '#FF7A00',
 	},
 	songsRow: {
 		flexDirection: 'row',
@@ -1602,18 +1603,18 @@ const styles = StyleSheet.create({
 		height: 26,
 		borderRadius: 13,
 		borderWidth: 2,
-		borderColor: colors.primary,
+		borderColor: '#FF7A00',
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
 	radioOuterSelected: {
-		borderColor: colors.primary,
+		borderColor: '#FF7A00',
 	},
 	radioInner: {
 		width: 14,
 		height: 14,
 		borderRadius: 7,
-		backgroundColor: colors.primary,
+		backgroundColor: '#FF7A00',
 	},
 	modalOverlayDark: {
 		flex: 1,

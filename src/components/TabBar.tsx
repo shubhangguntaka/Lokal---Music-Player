@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 
 interface TabBarProps {
   tabs: string[];
@@ -9,6 +9,7 @@ interface TabBarProps {
 }
 
 const TabBar: React.FC<TabBarProps> = ({ tabs, activeTab, onTabPress }) => {
+  const theme = useThemeColors();
   const defaultTab = useMemo(() => {
     if (tabs.includes('Suggested')) {
       return 'Suggested';
@@ -29,7 +30,7 @@ const TabBar: React.FC<TabBarProps> = ({ tabs, activeTab, onTabPress }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: theme.background, borderBottomColor: theme.border }]}> 
       <ScrollView 
         horizontal 
         showsHorizontalScrollIndicator={false}
@@ -40,10 +41,17 @@ const TabBar: React.FC<TabBarProps> = ({ tabs, activeTab, onTabPress }) => {
           return (
             <TouchableOpacity 
               key={tab} 
-              style={[styles.tab, isActive && styles.activeTab]}
+              style={[styles.tab, isActive && styles.activeTab, isActive && { borderBottomColor: theme.primary }]}
               onPress={() => handleTabPress(tab)}
             >
-              <Text style={[styles.tabText, isActive && styles.activeTabText]}>
+              <Text
+                style={[
+                  styles.tabText,
+                  { color: theme.tabInactive },
+                  isActive && styles.activeTabText,
+                  isActive && { color: theme.primary },
+                ]}
+              >
                 {tab}
               </Text>
             </TouchableOpacity>
@@ -56,9 +64,7 @@ const TabBar: React.FC<TabBarProps> = ({ tabs, activeTab, onTabPress }) => {
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0', // Slight border across the entire bar
   },
   scrollContainer: {
     paddingHorizontal: 16,
@@ -72,16 +78,13 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   activeTab: {
-    borderBottomColor: colors.primary,
   },
   tabText: {
     fontSize: 18,
     fontWeight: '500',
-    color: '#999999',
     letterSpacing: 0.2,
   },
   activeTabText: {
-    color: colors.primary,
     fontWeight: '600',
   },
 });

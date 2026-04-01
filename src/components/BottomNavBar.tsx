@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export type BottomTab = 'Home' | 'Favorites' | 'Playlists' | 'Settings';
@@ -17,10 +17,11 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
 	activeTab = 'Home',
 	onTabPress,
 }) => {
+	const theme = useThemeColors();
 	const insets = useSafeAreaInsets();
 
 	const renderIcon = (tab: BottomTab, isActive: boolean) => {
-		const iconColor = isActive ? colors.primary : '#ACACAC';
+		const iconColor = isActive ? theme.primary : theme.tabInactive;
 
 		switch (tab) {
 			case 'Home':
@@ -37,7 +38,16 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
 	};
 
 	return (
-		<View style={[styles.container, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+		<View
+			style={[
+				styles.container,
+				{
+					paddingBottom: Math.max(insets.bottom, 10),
+					backgroundColor: theme.surface,
+					borderTopColor: theme.border,
+				},
+			]}
+		>
 			{tabs.map((tab) => {
 				const isActive = activeTab === tab;
 
@@ -49,7 +59,16 @@ const BottomNavBar: React.FC<BottomNavBarProps> = ({
 						activeOpacity={0.85}
 					>
 						{renderIcon(tab, isActive)}
-						<Text style={[styles.tabLabel, isActive && styles.activeLabel]}>{tab}</Text>
+						<Text
+							style={[
+								styles.tabLabel,
+								{ color: theme.tabInactive },
+								isActive && styles.activeLabel,
+								isActive && { color: theme.primary },
+							]}
+						>
+							{tab}
+						</Text>
 					</TouchableOpacity>
 				);
 			})}
@@ -65,9 +84,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 18,
 		paddingTop: 10,
 		marginTop: -20,
-		backgroundColor: '#FFFFFF',
 		borderTopWidth: 1,
-		borderTopColor: '#ECECEC',
 	},
 	tabButton: {
 		alignItems: 'center',
@@ -78,10 +95,8 @@ const styles = StyleSheet.create({
 		marginTop: 2,
 		fontSize: 10,
 		fontWeight: '500',
-		color: '#9A9A9A',
 	},
 	activeLabel: {
-		color: colors.primary,
 		fontWeight: '600',
 	},
 });

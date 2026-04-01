@@ -9,6 +9,7 @@ import {
 	TouchableOpacity,
 	View,
 } from 'react-native';
+import { useThemeColors } from '../theme/colors';
 
 export type OptionSheetAction = {
 	key: string;
@@ -34,6 +35,8 @@ const OptionsSheetModal: React.FC<OptionsSheetModalProps> = ({
 	image,
 	options,
 }) => {
+	const theme = useThemeColors();
+
 	const handleOptionPress = (action: OptionSheetAction) => {
 		onClose();
 		action.onPress();
@@ -47,30 +50,30 @@ const OptionsSheetModal: React.FC<OptionsSheetModalProps> = ({
 			onRequestClose={onClose}
 		>
 			<TouchableOpacity
-				style={styles.overlay}
+				style={[styles.overlay, { backgroundColor: theme.overlay }]}
 				activeOpacity={1}
 				onPress={onClose}
 			>
 				<TouchableOpacity
 					activeOpacity={1}
-					style={styles.sheet}
+					style={[styles.sheet, { backgroundColor: theme.surface }]}
 					onPress={() => undefined}
 				>
-					<View style={styles.handle} />
+					<View style={[styles.handle, { backgroundColor: theme.handle }]} />
 
 					{!!title && (
 						<View style={styles.header}>
 							{image ? <Image source={image} style={styles.headerImage} /> : null}
 							<View style={styles.headerTextWrap}>
-								<Text style={styles.title} numberOfLines={1}>{title}</Text>
+								<Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>{title}</Text>
 								{!!subtitle && (
-									<Text style={styles.subtitle} numberOfLines={1}>{subtitle}</Text>
+									<Text style={[styles.subtitle, { color: theme.subText }]} numberOfLines={1}>{subtitle}</Text>
 								)}
 							</View>
 						</View>
 					)}
 
-					<View style={styles.divider} />
+					<View style={[styles.divider, { backgroundColor: theme.border }]} />
 
 					<ScrollView
 						showsVerticalScrollIndicator={false}
@@ -82,7 +85,14 @@ const OptionsSheetModal: React.FC<OptionsSheetModalProps> = ({
 								style={styles.optionRow}
 								onPress={() => handleOptionPress(action)}
 							>
-								<Text style={[styles.optionText, action.destructive && styles.optionTextDanger]}>
+								<Text
+									style={[
+										styles.optionText,
+										{ color: theme.text },
+										action.destructive && styles.optionTextDanger,
+										action.destructive && { color: theme.danger },
+									]}
+								>
 									{action.label}
 								</Text>
 							</TouchableOpacity>
@@ -97,12 +107,10 @@ const OptionsSheetModal: React.FC<OptionsSheetModalProps> = ({
 const styles = StyleSheet.create({
 	overlay: {
 		flex: 1,
-		backgroundColor: 'rgba(0,0,0,0.48)',
 		justifyContent: 'flex-end',
 	},
 	sheet: {
 		height: '78%',
-		backgroundColor: '#FFFFFF',
 		borderTopLeftRadius: 34,
 		borderTopRightRadius: 34,
 		paddingHorizontal: 16,
@@ -112,7 +120,6 @@ const styles = StyleSheet.create({
 		width: 54,
 		height: 6,
 		borderRadius: 3,
-		backgroundColor: '#DDDDDD',
 		alignSelf: 'center',
 		marginBottom: 16,
 	},
@@ -126,7 +133,7 @@ const styles = StyleSheet.create({
 		height: 64,
 		borderRadius: 16,
 		marginRight: 12,
-		backgroundColor: '#ECECEC',
+		backgroundColor: '#DADADA',
 	},
 	headerTextWrap: {
 		flex: 1,
@@ -134,16 +141,13 @@ const styles = StyleSheet.create({
 	title: {
 		fontSize: 16,
 		fontWeight: '700',
-		color: '#171717',
 		marginBottom: 2,
 	},
 	subtitle: {
 		fontSize: 13,
-		color: '#6A6A6A',
 	},
 	divider: {
 		height: 1,
-		backgroundColor: '#EFEFEF',
 		marginBottom: 8,
 	},
 	optionsWrap: {
@@ -155,10 +159,9 @@ const styles = StyleSheet.create({
 	optionText: {
 		fontSize: 14,
 		fontWeight: '500',
-		color: '#1E1E1E',
 	},
 	optionTextDanger: {
-		color: '#D92D20',
+		fontWeight: '600',
 	},
 });
 

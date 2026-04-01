@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { colors } from '../theme/colors';
+import { useThemeColors } from '../theme/colors';
 
 interface SectionHeaderProps {
   title: string;
@@ -13,12 +13,14 @@ const SectionHeader: React.FC<SectionHeaderProps> = ({
   onSeeAllPress,
   showSeeAll = true 
 }) => {
+  const theme = useThemeColors();
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{title}</Text>
+      <Text style={[styles.title, { color: theme.text }]}>{title}</Text>
       {showSeeAll && (
         <TouchableOpacity onPress={onSeeAllPress} disabled={!onSeeAllPress}>
-          <Text style={styles.seeAllText}>
+          <Text style={[styles.seeAllText, { color: theme.primary }]}>
             See All
           </Text>
         </TouchableOpacity>
@@ -38,12 +40,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#1A1A1A',
   },
   seeAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
   },
 });
 

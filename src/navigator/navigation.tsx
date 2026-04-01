@@ -17,6 +17,7 @@ import FavouritesScreen from '../screens/FavouritesScreen';
 import PlaylistsScreen from '../screens/PlaylistsScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { PlayerTrack } from '../components/Player';
+import { useThemeColors } from '../theme/colors';
 
 export type ArtistDetailParams = {
 	id: string;
@@ -60,6 +61,7 @@ const MainTabsShell: React.FC<MainTabsShellProps> = ({
 	navigation,
 	onPlaySong,
 }) => {
+	const theme = useThemeColors();
 	const [activeTab, setActiveTab] = useState<BottomTab>('Home');
 
 	const renderTabScreen = () => {
@@ -103,7 +105,7 @@ const MainTabsShell: React.FC<MainTabsShellProps> = ({
 	};
 
 	return (
-		<View style={styles.mainScreenLayout}>
+		<View style={[styles.mainScreenLayout, { backgroundColor: theme.background }]}> 
 			<View style={styles.mainScreenContent}>{renderTabScreen()}</View>
 			<BottomNavBar
 				activeTab={activeTab}

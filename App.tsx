@@ -8,8 +8,11 @@ import Player, { PlayerTrack } from './src/components/Player';
 import { usePlayerStore } from './src/store/playerStore';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigation from './src/navigator/navigation';
+import { useIsDarkTheme, useThemeColors } from './src/theme/colors';
 
 export default function App() {
+  const theme = useThemeColors();
+  const isDarkMode = useIsDarkTheme();
   const [isTabsRoute, setIsTabsRoute] = useState(true);
   const [sheetIndex, setSheetIndex] = useState(-1);
   const bottomSheetRef = useRef<BottomSheet>(null);
@@ -73,10 +76,10 @@ export default function App() {
   };
 
   return (
-    <GestureHandlerRootView style={styles.rootContainer}>
+    <GestureHandlerRootView style={[styles.rootContainer, { backgroundColor: theme.background }]}>
       <SafeAreaProvider>
-        <StatusBar style="dark" />
-        <View style={styles.appContainer}>
+        <StatusBar style={isDarkMode ? 'light' : 'dark'} />
+        <View style={[styles.appContainer, { backgroundColor: theme.background }]}> 
           <View style={styles.screenContainer}>
             <AppNavigation
               onPlaySong={handlePlaySong}
@@ -90,9 +93,10 @@ export default function App() {
               index={0}
               snapPoints={snapPoints}
               onChange={setSheetIndex}
-              handleIndicatorStyle={styles.sheetHandleIndicator}
+              handleIndicatorStyle={[styles.sheetHandleIndicator, { backgroundColor: theme.handle }]}
               backgroundStyle={[
                 styles.sheetBackground,
+                { backgroundColor: theme.surface, borderColor: theme.border },
                 isExpanded && styles.sheetBackgroundExpanded,
               ]}
               containerStyle={[
@@ -157,10 +161,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   sheetBackground: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#EEEEEE',
   },
   sheetBackgroundExpanded: {
     borderRadius: 0,
@@ -170,7 +172,6 @@ const styles = StyleSheet.create({
   sheetHandleIndicator: {
     width: 44,
     height: 4,
-    backgroundColor: '#D7D7D7',
   },
   sheetContent: {
     flex: 1,
