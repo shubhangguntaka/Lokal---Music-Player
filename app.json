@@ -29,13 +29,20 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "WAKE_LOCK"
-      ]
+      ],
+      "package": "com.shubhangguntaka.LokalMusicPlayer"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "01bd1ab4-c42c-4e4a-b0e9-3d9087457df4"
+      }
+    },
+    "owner": "shubhangguntaka"
   }
 }
