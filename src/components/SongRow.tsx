@@ -118,4 +118,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default SongRow;
+export default React.memo(SongRow);

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
     FlatList,
     Image,
@@ -13,6 +13,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../theme/colors';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
+import { PlayerTrack } from '../components/Player';
+
+const PLAYLIST_ROW_HEIGHT = 88;
 
 const PlaylistsScreen = () => {
     const theme = useThemeColors();
@@ -31,6 +34,37 @@ const PlaylistsScreen = () => {
         () => selectedPlaylist?.tracks.filter((track) => Boolean(track.url)) || [],
         [selectedPlaylist],
     );
+
+    const keyExtractor = useCallback((item: PlayerTrack) => item.id, []);
+
+    const getItemLayout = useCallback((_: ArrayLike<PlayerTrack> | null | undefined, index: number) => ({
+        length: PLAYLIST_ROW_HEIGHT,
+        offset: PLAYLIST_ROW_HEIGHT * index,
+        index,
+    }), []);
+
+    const renderPlaylistItem = useCallback(({ item }: { item: PlayerTrack }) => (
+        <View style={[styles.row, { borderBottomColor: theme.border }]}> 
+            <Image source={item.image} style={[styles.image, { backgroundColor: theme.imagePlaceholder }]} />
+            <View style={styles.textWrap}>
+                <Text numberOfLines={1} style={[styles.songTitle, { color: theme.text }]}>{item.title}</Text>
+                <Text numberOfLines={1} style={[styles.songArtist, { color: theme.subText }]}>{item.artist}</Text>
+            </View>
+            <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => item.url && playSong(item, playableQueue.length ? playableQueue : [item])}
+                disabled={!item.url}
+            >
+                <Ionicons name="play-circle" size={34} color={theme.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => selectedPlaylist && removeTrackFromPlaylist(selectedPlaylist.id, item.id)}
+            >
+                <Ionicons name="trash-outline" size={22} color={theme.subText} />
+            </TouchableOpacity>
+        </View>
+    ), [playSong, playableQueue, removeTrackFromPlaylist, selectedPlaylist, theme.border, theme.imagePlaceholder, theme.primary, theme.subText, theme.text]);
 
     return (
         <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}> 
@@ -94,30 +128,14 @@ const PlaylistsScreen = () => {
             ) : (
                 <FlatList
                     data={selectedPlaylist.tracks}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderPlaylistItem}
+                    getItemLayout={getItemLayout}
+                    removeClippedSubviews
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={8}
+                    windowSize={7}
                     contentContainerStyle={styles.listContent}
-                    renderItem={({ item }) => (
-                        <View style={[styles.row, { borderBottomColor: theme.border }]}> 
-                            <Image source={item.image} style={[styles.image, { backgroundColor: theme.imagePlaceholder }]} />
-                            <View style={styles.textWrap}>
-                                <Text numberOfLines={1} style={[styles.songTitle, { color: theme.text }]}>{item.title}</Text>
-                                <Text numberOfLines={1} style={[styles.songArtist, { color: theme.subText }]}>{item.artist}</Text>
-                            </View>
-                            <TouchableOpacity
-                                style={styles.iconButton}
-                                onPress={() => item.url && playSong(item, playableQueue.length ? playableQueue : [item])}
-                                disabled={!item.url}
-                            >
-                                <Ionicons name="play-circle" size={34} color={theme.primary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.iconButton}
-                                onPress={() => selectedPlaylist && removeTrackFromPlaylist(selectedPlaylist.id, item.id)}
-                            >
-                                <Ionicons name="trash-outline" size={22} color={theme.subText} />
-                            </TouchableOpacity>
-                        </View>
-                    )}
                 />
             )}
         </SafeAreaView>

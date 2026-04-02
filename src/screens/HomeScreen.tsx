@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
 	Alert,
 	FlatList,
@@ -32,7 +32,8 @@ import {
 	SearchResult,
 } from '../services/api';
 import { usePlayerStore } from '../store/playerStore';
-import { useLibraryStore } from '../store/libraryStore';
+import { Playlist, useLibraryStore } from '../store/libraryStore';
+import { useShallow } from 'zustand/react/shallow';
 
 type MusicItem = {
 	id: string;
@@ -72,10 +73,14 @@ type AlbumItem = {
 	totalDuration?: string;
 };
 
-type HomeTab = 'Suggested' | 'Songs' | 'Artists' | 'Albums';
+type LanguageKey = 'Telugu' | 'Hindi' | 'English' | 'Tamil' | 'Malayalam' | 'Kannada';
+type HomeTab = 'Suggested' | 'Songs' | 'Artists' | 'Playlists' | 'Albums';
 
-const tabs: HomeTab[] = ['Suggested', 'Songs', 'Artists', 'Albums'];
+const tabs: HomeTab[] = ['Suggested', 'Songs', 'Artists', 'Playlists', 'Albums'];
 const SONGS_PAGE_SIZE = 16;
+const SONG_ROW_HEIGHT = 96;
+const ARTIST_ROW_HEIGHT = 105;
+const CARD_ITEM_WIDTH = 170;
 
 const albumArtwork = require('../../assets/icon.png');
 const artistArtwork = require('../../assets/adaptive-icon.png');
@@ -106,6 +111,15 @@ const TELUGU_ESSENTIALS_ALBUM_QUERIES = [
 	'Telugu Love Essentials',
 	'Telugu Dance Essentials',
 	'Telugu Melody Essentials',
+];
+
+const LANGUAGE_ALBUM_SECTIONS: Array<{ key: LanguageKey; label: string; query: string }> = [
+	{ key: 'Telugu', label: 'Telugu', query: 'Telugu movie songs albums' },
+	{ key: 'Hindi', label: 'Hindi', query: 'Hindi movie songs albums' },
+	{ key: 'English', label: 'English', query: 'English movie songs albums' },
+	{ key: 'Tamil', label: 'Tamil', query: 'Tamil movie songs albums' },
+	{ key: 'Malayalam', label: 'Malayalam', query: 'Malayalam movie songs albums' },
+	{ key: 'Kannada', label: 'Kannada', query: 'Kannada movie songs albums' },
 ];
 
 const defaultSongsData: SongListItem[] = [
@@ -149,6 +163,15 @@ const defaultAlbumsData: AlbumItem[] = [
 	{ id: '4', title: 'Telugu Melody Essentials', artist: 'JioSaavn', year: 2024, songs: 42, image: albumArtwork },
 ];
 
+const defaultLanguageAlbums: Record<LanguageKey, AlbumItem[]> = {
+	Telugu: defaultAlbumsData,
+	Hindi: [],
+	English: [],
+	Tamil: [],
+	Malayalam: [],
+	Kannada: [],
+};
+
 const sortOptions = [
 	'Ascending',
 	'Descending',
@@ -187,6 +210,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const [songsData, setSongsData] = useState<SongListItem[]>(defaultSongsData);
 	const [artistsData, setArtistsData] = useState<ArtistItem[]>(defaultArtists);
 	const [albumsData, setAlbumsData] = useState<AlbumItem[]>(defaultAlbumsData);
+	const [languageAlbums, setLanguageAlbums] = useState<Record<LanguageKey, AlbumItem[]>>(defaultLanguageAlbums);
 	const [recentlyPlayed, setRecentlyPlayed] = useState<MusicItem[]>(defaultRecentlyPlayed);
 	const [mostPlayed, setMostPlayed] = useState<MusicItem[]>(defaultMostPlayed);
 	const [isSortModalVisible, setSortModalVisible] = useState(false);
@@ -199,16 +223,32 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	const [selectedSong, setSelectedSong] = useState<SongListItem | null>(null);
 	const [selectedArtist, setSelectedArtist] = useState<ArtistItem | null>(null);
 	const [selectedAlbum, setSelectedAlbum] = useState<AlbumItem | null>(null);
-	const currentSong = usePlayerStore((state) => state.currentSong);
-	const addToQueue = usePlayerStore((state) => state.addToQueue);
-	const addToQueueNext = usePlayerStore((state) => state.addToQueueNext);
-	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
-	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
-	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
-	const playlists = useLibraryStore((state) => state.playlists);
-	const isFavourite = useLibraryStore((state) => state.isFavourite);
-	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
-	const addTrackToPlaylist = useLibraryStore((state) => state.addTrackToPlaylist);
+	const {
+		currentSong,
+		addToQueue,
+		addToQueueNext,
+		downloadTrack,
+		removeDownloadedTrack,
+		isTrackDownloaded,
+	} = usePlayerStore(useShallow((state) => ({
+		currentSong: state.currentSong,
+		addToQueue: state.addToQueue,
+		addToQueueNext: state.addToQueueNext,
+		downloadTrack: state.downloadTrack,
+		removeDownloadedTrack: state.removeDownloadedTrack,
+		isTrackDownloaded: state.isTrackDownloaded,
+	})));
+	const {
+		playlists,
+		isFavourite,
+		toggleFavourite,
+		addTrackToPlaylist,
+	} = useLibraryStore(useShallow((state) => ({
+		playlists: state.playlists,
+		isFavourite: state.isFavourite,
+		toggleFavourite: state.toggleFavourite,
+		addTrackToPlaylist: state.addTrackToPlaylist,
+	})));
 	const primaryPlaylist = playlists[0];
 
 	const filteredSongsData = useMemo(() => {
@@ -229,6 +269,45 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 	);
 
 	const hasMoreSongs = paginatedSongsData.length < filteredSongsData.length;
+
+	const getHorizontalCardLayout = useCallback((_: ArrayLike<MusicItem | ArtistItem | AlbumItem> | null | undefined, index: number) => ({
+		length: CARD_ITEM_WIDTH,
+		offset: CARD_ITEM_WIDTH * index,
+		index,
+	}), []);
+
+	const getSongsRowLayout = useCallback((_: ArrayLike<SongListItem> | null | undefined, index: number) => ({
+		length: SONG_ROW_HEIGHT,
+		offset: SONG_ROW_HEIGHT * index,
+		index,
+	}), []);
+
+	const getArtistsRowLayout = useCallback((_: ArrayLike<ArtistItem> | null | undefined, index: number) => ({
+		length: ARTIST_ROW_HEIGHT,
+		offset: ARTIST_ROW_HEIGHT * index,
+		index,
+	}), []);
+
+	const sortedPlaylists = useMemo(() => {
+		const nextPlaylists = [...playlists];
+
+		switch (currentSort) {
+			case 'Ascending':
+				nextPlaylists.sort((a, b) => a.name.localeCompare(b.name));
+				break;
+			case 'Descending':
+				nextPlaylists.sort((a, b) => b.name.localeCompare(a.name));
+				break;
+			case 'Date Added':
+				nextPlaylists.reverse();
+				break;
+			default:
+				nextPlaylists.sort((a, b) => b.tracks.length - a.tracks.length);
+				break;
+		}
+
+		return nextPlaylists;
+	}, [currentSort, playlists]);
 
 	const toPlayerTrack = (song: SongListItem): PlayerTrack => ({
 		id: song.id,
@@ -574,6 +653,15 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 			url: song.url,
 		});
 
+		const mapAlbum = (album: SearchResult, index: number, prefix: string): AlbumItem => ({
+			id: album.id || `${prefix}-${index}`,
+			title: album.title,
+			artist: album.description?.split('|')[0]?.trim() || 'JioSaavn',
+			year: Number(album.year) || 2024,
+			songs: Number(album.songCount) || 20,
+			image: { uri: album.image },
+		});
+
 		const loadHomeData = async () => {
 			try {
 				const languageResults = await Promise.all(
@@ -617,14 +705,22 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					.filter((album) => album.id && album.title)
 					.filter((album, index, arr) => arr.findIndex((a) => a.id === album.id) === index)
 					.slice(0, 12)
-					.map((album, index) => ({
-						id: album.id || `album-${index}`,
-						title: album.title,
-						artist: album.description?.split('|')[0]?.trim() || 'JioSaavn',
-						year: Number(album.year) || 2024,
-						songs: Number(album.songCount) || 20,
-						image: { uri: album.image },
-					}));
+					.map((album, index) => mapAlbum(album, index, 'album'));
+
+				const languageAlbumResults = await Promise.all(
+					LANGUAGE_ALBUM_SECTIONS.map((section) => searchAlbums(section.query)),
+				);
+
+				const nextLanguageAlbums = LANGUAGE_ALBUM_SECTIONS.reduce<Record<LanguageKey, AlbumItem[]>>((acc, section, sectionIndex) => {
+					const albumsForSection = (languageAlbumResults[sectionIndex] || [])
+						.filter((album) => album.id && album.title)
+						.filter((album, index, arr) => arr.findIndex((a) => a.id === album.id) === index)
+						.slice(0, 12)
+						.map((album, index) => mapAlbum(album, index, section.key.toLowerCase()));
+
+					acc[section.key] = albumsForSection;
+					return acc;
+				}, { ...defaultLanguageAlbums });
 
 				if (!mounted) {
 					return;
@@ -664,6 +760,8 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				if (apiAlbums.length > 0) {
 					setAlbumsData(apiAlbums);
 				}
+
+				setLanguageAlbums(nextLanguageAlbums);
 			} catch (error) {
 				console.error('Home API load error:', error);
 			}
@@ -937,6 +1035,11 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					data={recentlyPlayed}
 					renderItem={renderSongCard}
 					keyExtractor={(item) => item.id}
+					getItemLayout={getHorizontalCardLayout}
+					removeClippedSubviews
+					initialNumToRender={5}
+					maxToRenderPerBatch={6}
+					windowSize={5}
 					horizontal
 					nestedScrollEnabled
 					onTouchStart={handleHorizontalListScrollStart}
@@ -959,6 +1062,11 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					data={mostPlayed}
 					renderItem={renderSongCard}
 					keyExtractor={(item) => item.id}
+					getItemLayout={getHorizontalCardLayout}
+					removeClippedSubviews
+					initialNumToRender={5}
+					maxToRenderPerBatch={6}
+					windowSize={5}
 					horizontal
 					nestedScrollEnabled
 					onTouchStart={handleHorizontalListScrollStart}
@@ -981,6 +1089,11 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					data={artistsData}
 					renderItem={renderArtistCard}
 					keyExtractor={(item) => item.id}
+					getItemLayout={getHorizontalCardLayout}
+					removeClippedSubviews
+					initialNumToRender={5}
+					maxToRenderPerBatch={6}
+					windowSize={5}
 					horizontal
 					nestedScrollEnabled
 					onTouchStart={handleHorizontalListScrollStart}
@@ -1003,6 +1116,11 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 					data={albumsData}
 					renderItem={renderAlbumCard}
 					keyExtractor={(item) => item.id}
+					getItemLayout={getHorizontalCardLayout}
+					removeClippedSubviews
+					initialNumToRender={5}
+					maxToRenderPerBatch={6}
+					windowSize={5}
 					horizontal
 					nestedScrollEnabled
 					onTouchStart={handleHorizontalListScrollStart}
@@ -1031,26 +1149,15 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				</TouchableOpacity>
 			</View>
 
-			<View style={[styles.songsSearchInputWrap, { backgroundColor: theme.inputBackground }]}> 
-				<Ionicons name="search" size={18} color={theme.subText} />
-				<TextInput
-					style={[styles.songsSearchInput, { color: theme.text }]}
-					value={songsSearchQuery}
-					onChangeText={setSongsSearchQuery}
-					placeholder="Search in songs"
-					placeholderTextColor={theme.subText}
-				/>
-				{songsSearchQuery ? (
-					<TouchableOpacity onPress={() => setSongsSearchQuery('')}>
-						<Ionicons name="close-circle" size={18} color={theme.subText} />
-					</TouchableOpacity>
-				) : null}
-			</View>
-
 			<FlatList
 				data={paginatedSongsData}
 				renderItem={renderSongsRow}
 				keyExtractor={(item) => item.id}
+				getItemLayout={getSongsRowLayout}
+				removeClippedSubviews
+				initialNumToRender={10}
+				maxToRenderPerBatch={10}
+				windowSize={7}
 				onEndReached={() => {
 					if (hasMoreSongs) {
 						setSongsVisibleCount((prev) => Math.min(prev + SONGS_PAGE_SIZE, filteredSongsData.length));
@@ -1091,16 +1198,72 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				data={artistsData}
 				renderItem={renderArtistRow}
 				keyExtractor={(item) => item.id}
+				getItemLayout={getArtistsRowLayout}
+				removeClippedSubviews
+				initialNumToRender={8}
+				maxToRenderPerBatch={8}
+				windowSize={7}
 				showsVerticalScrollIndicator={false}
 				contentContainerStyle={styles.artistsListContent}
 			/>
 		</View>
 	);
 
-	const renderAlbumsTab = () => (
-		<View style={styles.albumsTabContainer}>
-			<View style={[styles.albumsHeaderRow, { borderBottomColor: theme.border }]}> 
-				<Text style={[styles.albumCountText, { color: theme.text }]}>{albumsData.length} albums</Text>
+	const handlePlayPlaylist = (playlist: Playlist) => {
+		if (!playlist.tracks.length || !onPlaySong) {
+			return;
+		}
+
+		const playableTracks = playlist.tracks.filter((track) => Boolean(track.url));
+		if (!playableTracks.length) {
+			Alert.alert('Playback unavailable', 'No playable tracks found in this playlist.');
+			return;
+		}
+
+		const firstTrack = playableTracks[0];
+		setPlayingSongId(firstTrack.id);
+		onPlaySong(firstTrack, playableTracks);
+	};
+
+	const renderPlaylistRow = ({ item }: { item: Playlist }) => {
+		const coverArt = item.tracks[0]?.image || albumArtwork;
+
+		return (
+			<TouchableOpacity style={styles.albumCard} onPress={() => handlePlayPlaylist(item)}>
+				<View style={styles.albumCardWrapper}>
+					<Image source={coverArt} style={[styles.albumCardImage, { backgroundColor: theme.imagePlaceholder }]} />
+				</View>
+				<View style={styles.albumTitleRow}>
+					<Text style={[styles.albumCardTitle, { color: theme.text }]} numberOfLines={1}>
+						{item.name}
+					</Text>
+					<TouchableOpacity
+						style={styles.albumMoreButton}
+						onPress={() => handlePlayPlaylist(item)}
+						disabled={!item.tracks.length}
+					>
+						<Ionicons name="play-circle" size={24} color={theme.primary} />
+					</TouchableOpacity>
+				</View>
+				<Text style={[styles.albumCardMeta, { color: theme.subText }]} numberOfLines={1}>
+					{item.tracks.length} songs
+				</Text>
+				<TouchableOpacity
+					onPress={() => handlePlayPlaylist(item)}
+					disabled={!item.tracks.length}
+				>
+					<Text style={[styles.albumCardSongs, { color: item.tracks.length ? theme.primary : theme.mutedText }]}> 
+						{item.tracks.length ? 'Play Playlist' : 'Empty playlist'}
+					</Text>
+				</TouchableOpacity>
+			</TouchableOpacity>
+		);
+	};
+
+	const renderPlaylistsTab = () => (
+		<View style={styles.playlistsTabContainer}>
+			<View style={[styles.playlistsHeaderRow, { borderBottomColor: theme.border }]}> 
+				<Text style={[styles.playlistCountText, { color: theme.text }]}>{sortedPlaylists.length} playlists</Text>
 				<TouchableOpacity
 					style={styles.sortButton}
 					onPress={() => setSortModalVisible(true)}
@@ -1111,15 +1274,101 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 			</View>
 
 			<FlatList
-				data={albumsData}
-				renderItem={renderAlbumCard}
+				data={sortedPlaylists}
+				renderItem={renderPlaylistRow}
 				keyExtractor={(item) => item.id}
-				showsVerticalScrollIndicator={false}
+				removeClippedSubviews
+				initialNumToRender={8}
+				maxToRenderPerBatch={8}
+				windowSize={7}
 				numColumns={2}
 				columnWrapperStyle={styles.albumsGridWrapper}
-				contentContainerStyle={styles.albumsListContent}
+				ListEmptyComponent={<Text style={[styles.noSongsText, { color: theme.subText }]}>No playlists created yet.</Text>}
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={styles.playlistsListContent}
 			/>
 		</View>
+	);
+
+	const renderLanguageAlbumCard = ({ item }: { item: AlbumItem }) => (
+		<TouchableOpacity
+			style={styles.languageAlbumCard}
+			onPress={() =>
+				onAlbumPress?.({
+					...item,
+					totalDuration: item.totalDuration || '01:20:38 mins',
+				})
+			}
+		>
+			<View style={styles.languageAlbumCardWrapper}>
+				<Image source={item.image} style={[styles.languageAlbumCardImage, { backgroundColor: theme.imagePlaceholder }]} />
+			</View>
+			<View style={styles.languageAlbumTitleRow}>
+				<Text style={[styles.languageAlbumTitle, { color: theme.text }]} numberOfLines={1}>
+					{item.title}
+				</Text>
+				<TouchableOpacity
+					style={styles.albumMoreButton}
+					onPress={() => handleOpenAlbumOptions(item)}
+				>
+					<Feather name="more-vertical" size={20} color={theme.icon} />
+				</TouchableOpacity>
+			</View>
+			<Text style={[styles.languageAlbumMeta, { color: theme.subText }]} numberOfLines={1}>
+				{item.artist} | {item.year}
+			</Text>
+			<Text style={[styles.languageAlbumSongs, { color: theme.mutedText }]}> 
+				{item.songs} songs
+			</Text>
+		</TouchableOpacity>
+	);
+
+	const renderAlbumsTab = () => (
+		<ScrollView style={styles.albumsTabContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.languageAlbumsScrollContent}>
+			<View style={[styles.albumsHeaderRow, { borderBottomColor: theme.border }]}> 
+				<Text style={[styles.albumCountText, { color: theme.text }]}>Movie Songs Albums</Text>
+				<TouchableOpacity
+					style={styles.sortButton}
+					onPress={() => setSortModalVisible(true)}
+				>
+					<Text style={[styles.sortButtonText, { color: theme.primary }]}>{currentSort}</Text>
+					<Ionicons name="swap-vertical" size={22} color={theme.primary} />
+				</TouchableOpacity>
+			</View>
+
+			{LANGUAGE_ALBUM_SECTIONS.map((section) => {
+				const sortedLanguageAlbums = sortAlbumsList(languageAlbums[section.key] || [], currentSort);
+
+				return (
+					<View key={section.key} style={styles.languageAlbumsSection}>
+						<SectionHeader title={`${section.label} Movie Albums`} showSeeAll={false} />
+						<FlatList
+							data={sortedLanguageAlbums}
+							renderItem={renderLanguageAlbumCard}
+							keyExtractor={(item) => `${section.key}-${item.id}`}
+							getItemLayout={getHorizontalCardLayout}
+							removeClippedSubviews
+							initialNumToRender={5}
+							maxToRenderPerBatch={6}
+							windowSize={5}
+							horizontal
+							nestedScrollEnabled
+							onTouchStart={handleHorizontalListScrollStart}
+							onScrollBeginDrag={handleHorizontalListScrollStart}
+							onScrollEndDrag={handleHorizontalListScrollEnd}
+							onMomentumScrollEnd={handleHorizontalListScrollEnd}
+							onTouchEnd={handleHorizontalListScrollEnd}
+							onTouchCancel={handleHorizontalListScrollEnd}
+							showsHorizontalScrollIndicator={false}
+							contentContainerStyle={styles.listContent}
+							ListEmptyComponent={
+								<Text style={[styles.languageAlbumsEmptyText, { color: theme.subText }]}>No albums found.</Text>
+							}
+						/>
+					</View>
+				);
+			})}
+		</ScrollView>
 	);
 
 	return (
@@ -1143,6 +1392,7 @@ const HomeScreen: React.FC<{ onSearchPress?: () => void; onArtistPress?: (artist
 				<View style={[styles.pagerPage, { width }]}>{renderSuggestedTab()}</View>
 				<View style={[styles.pagerPage, { width }]}>{renderSongsTab()}</View>
 				<View style={[styles.pagerPage, { width }]}>{renderArtistsTab()}</View>
+				<View style={[styles.pagerPage, { width }]}>{renderPlaylistsTab()}</View>
 				<View style={[styles.pagerPage, { width }]}>{renderAlbumsTab()}</View>
 			</ScrollView>
 
@@ -1516,6 +1766,59 @@ const styles = StyleSheet.create({
 	artistsListContent: {
 		paddingBottom: 24,
 	},
+	playlistsTabContainer: {
+		flex: 1,
+		paddingHorizontal: 16,
+		paddingTop: 14,
+	},
+	playlistsHeaderRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingBottom: 18,
+		borderBottomWidth: 1,
+		borderBottomColor: '#ECECEC',
+		marginBottom: 6,
+	},
+	playlistCountText: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#171717',
+	},
+	playlistsListContent: {
+		width: 150,
+		paddingBottom: 24,
+	},
+	playlistRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: '#F5F5F5',
+	},
+	playlistImage: {
+		width: 64,
+		height: 64,
+		borderRadius: 18,
+		marginRight: 12,
+		backgroundColor: '#ECECEC',
+	},
+	playlistTextWrap: {
+		flex: 1,
+	},
+	playlistName: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#1A1A1A',
+		marginBottom: 3,
+	},
+	playlistMeta: {
+		fontSize: 13,
+		color: '#999999',
+	},
+	playlistPlayButton: {
+		paddingHorizontal: 6,
+	},
 	artistRowContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -1676,7 +1979,6 @@ const styles = StyleSheet.create({
 	},
 	albumsTabContainer: {
 		flex: 1,
-		paddingHorizontal: 16,
 		paddingBottom: 8,
 		paddingTop: 14,
 	},
@@ -1684,6 +1986,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
+		paddingHorizontal: 16,
 		paddingBottom: 18,
 		borderBottomWidth: 1,
 		borderBottomColor: '#ECECEC',
@@ -1696,6 +1999,54 @@ const styles = StyleSheet.create({
 	},
 	albumsListContent: {
 		paddingBottom: 24,
+	},
+	languageAlbumsScrollContent: {
+		paddingBottom: 24,
+	},
+	languageAlbumsSection: {
+		marginBottom: 16,
+	},
+	languageAlbumCard: {
+		width: 156,
+		marginRight: 14,
+		marginBottom: 4,
+	},
+	languageAlbumCardWrapper: {
+		marginBottom: 10,
+	},
+	languageAlbumCardImage: {
+		width: 156,
+		height: 156,
+		borderRadius: 30,
+		backgroundColor: '#ECECEC',
+	},
+	languageAlbumTitleRow: {
+		flexDirection: 'row',
+		alignItems: 'flex-start',
+		justifyContent: 'space-between',
+		marginBottom: 2,
+	},
+	languageAlbumTitle: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#1A1A1A',
+		flex: 1,
+		paddingRight: 8,
+		lineHeight: 22,
+	},
+	languageAlbumMeta: {
+		fontSize: 13,
+		color: '#999999',
+		marginBottom: 2,
+	},
+	languageAlbumSongs: {
+		fontSize: 13,
+		color: '#ACACAC',
+	},
+	languageAlbumsEmptyText: {
+		fontSize: 13,
+		paddingHorizontal: 16,
+		paddingTop: 12,
 	},
 	albumsGridWrapper: {
 		justifyContent: 'space-between',

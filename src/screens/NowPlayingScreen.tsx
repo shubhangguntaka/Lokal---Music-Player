@@ -24,6 +24,7 @@ import { PlayerTrack } from '../components/Player';
 import OptionsSheetModal, { OptionSheetAction } from '../components/OptionsSheetModal';
 import { usePlayerStore } from '../store/playerStore';
 import { useLibraryStore } from '../store/libraryStore';
+import { useShallow } from 'zustand/react/shallow';
 
 type NowPlayingScreenProps = {
 	track: PlayerTrack;
@@ -153,20 +154,37 @@ const NowPlayingScreen: React.FC<NowPlayingScreenProps> = ({
 	const sleepTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const isPlayingRef = useRef(isPlaying);
 	const artworkSize = Math.min(width - 34, 340);
-	const queue = usePlayerStore((state) => state.queue);
-	const currentTrackIndex = usePlayerStore((state) => state.currentTrackIndex);
-	const isShuffleEnabled = usePlayerStore((state) => state.isShuffleEnabled);
-	const repeatMode = usePlayerStore((state) => state.repeatMode);
-	const playQueueIndex = usePlayerStore((state) => state.playQueueIndex);
-	const moveQueueItem = usePlayerStore((state) => state.moveQueueItem);
-	const removeFromQueue = usePlayerStore((state) => state.removeFromQueue);
-	const toggleShuffleMode = usePlayerStore((state) => state.toggleShuffleMode);
-	const cycleRepeatMode = usePlayerStore((state) => state.cycleRepeatMode);
-	const downloadTrack = usePlayerStore((state) => state.downloadTrack);
-	const removeDownloadedTrack = usePlayerStore((state) => state.removeDownloadedTrack);
-	const isTrackDownloaded = usePlayerStore((state) => state.isTrackDownloaded);
-	const isFavourite = useLibraryStore((state) => state.isFavourite);
-	const toggleFavourite = useLibraryStore((state) => state.toggleFavourite);
+	const {
+		queue,
+		currentTrackIndex,
+		isShuffleEnabled,
+		repeatMode,
+		playQueueIndex,
+		moveQueueItem,
+		removeFromQueue,
+		toggleShuffleMode,
+		cycleRepeatMode,
+		downloadTrack,
+		removeDownloadedTrack,
+		isTrackDownloaded,
+	} = usePlayerStore(useShallow((state) => ({
+		queue: state.queue,
+		currentTrackIndex: state.currentTrackIndex,
+		isShuffleEnabled: state.isShuffleEnabled,
+		repeatMode: state.repeatMode,
+		playQueueIndex: state.playQueueIndex,
+		moveQueueItem: state.moveQueueItem,
+		removeFromQueue: state.removeFromQueue,
+		toggleShuffleMode: state.toggleShuffleMode,
+		cycleRepeatMode: state.cycleRepeatMode,
+		downloadTrack: state.downloadTrack,
+		removeDownloadedTrack: state.removeDownloadedTrack,
+		isTrackDownloaded: state.isTrackDownloaded,
+	})));
+	const { isFavourite, toggleFavourite } = useLibraryStore(useShallow((state) => ({
+		isFavourite: state.isFavourite,
+		toggleFavourite: state.toggleFavourite,
+	})));
 	const isCurrentTrackDownloaded = isTrackDownloaded(track.id);
 	const isCurrentTrackFavourite = isFavourite(track.id);
 

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import {
     FlatList,
     Image,
@@ -13,6 +13,8 @@ import { useThemeColors } from '../theme/colors';
 import { useLibraryStore } from '../store/libraryStore';
 import { usePlayerStore } from '../store/playerStore';
 import { PlayerTrack } from '../components/Player';
+
+const FAVOURITE_ROW_HEIGHT = 88;
 
 const FavouritesScreen = () => {
     const theme = useThemeColors();
@@ -30,6 +32,37 @@ const FavouritesScreen = () => {
         playSong(track, playableQueue.length ? playableQueue : [track]);
     };
 
+    const keyExtractor = useCallback((item: PlayerTrack) => item.id, []);
+
+    const getItemLayout = useCallback((_: ArrayLike<PlayerTrack> | null | undefined, index: number) => ({
+        length: FAVOURITE_ROW_HEIGHT,
+        offset: FAVOURITE_ROW_HEIGHT * index,
+        index,
+    }), []);
+
+    const renderItem = useCallback(({ item }: { item: PlayerTrack }) => (
+        <View style={[styles.row, { borderBottomColor: theme.border }]}> 
+            <Image source={item.image} style={[styles.image, { backgroundColor: theme.imagePlaceholder }]} />
+            <View style={styles.textWrap}>
+                <Text numberOfLines={1} style={[styles.songTitle, { color: theme.text }]}>{item.title}</Text>
+                <Text numberOfLines={1} style={[styles.songArtist, { color: theme.subText }]}>{item.artist}</Text>
+            </View>
+            <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => handlePlayTrack(item)}
+                disabled={!item.url}
+            >
+                <Ionicons name="play-circle" size={34} color={theme.primary} />
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => removeFromFavourites(item.id)}
+            >
+                <Ionicons name="heart" size={24} color={theme.primary} />
+            </TouchableOpacity>
+        </View>
+    ), [handlePlayTrack, removeFromFavourites, theme.border, theme.imagePlaceholder, theme.primary, theme.subText, theme.text]);
+
     return (
         <SafeAreaView style={[styles.screen, { backgroundColor: theme.background }]}>
             <Text style={[styles.title, { color: theme.text }]}>Favourites</Text>
@@ -45,30 +78,14 @@ const FavouritesScreen = () => {
             ) : (
                 <FlatList
                     data={favourites}
-                    keyExtractor={(item) => item.id}
+                    keyExtractor={keyExtractor}
+                    renderItem={renderItem}
+                    getItemLayout={getItemLayout}
+                    removeClippedSubviews
+                    initialNumToRender={8}
+                    maxToRenderPerBatch={8}
+                    windowSize={7}
                     contentContainerStyle={styles.listContent}
-                    renderItem={({ item }) => (
-                        <View style={[styles.row, { borderBottomColor: theme.border }]}> 
-                            <Image source={item.image} style={[styles.image, { backgroundColor: theme.imagePlaceholder }]} />
-                            <View style={styles.textWrap}>
-                                <Text numberOfLines={1} style={[styles.songTitle, { color: theme.text }]}>{item.title}</Text>
-                                <Text numberOfLines={1} style={[styles.songArtist, { color: theme.subText }]}>{item.artist}</Text>
-                            </View>
-                            <TouchableOpacity
-                                style={styles.iconButton}
-                                onPress={() => handlePlayTrack(item)}
-                                disabled={!item.url}
-                            >
-                                <Ionicons name="play-circle" size={34} color={theme.primary} />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.iconButton}
-                                onPress={() => removeFromFavourites(item.id)}
-                            >
-                                <Ionicons name="heart" size={24} color={theme.primary} />
-                            </TouchableOpacity>
-                        </View>
-                    )}
                 />
             )}
         </SafeAreaView>

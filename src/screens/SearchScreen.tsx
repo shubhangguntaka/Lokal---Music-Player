@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
 	Alert,
 	View,
@@ -28,6 +28,7 @@ interface SearchScreenProps {
 }
 
 const INITIAL_RECENT_SEARCHES = ['Ariana Grande', 'Morgan Wallen', 'Justin Bieber', 'Drake', 'Olivia Rodrigo', 'The Weeknd', 'Taylor Swift', 'Juice WRLD', 'Memories'];
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface SongItem {
 	id: string;
@@ -63,12 +64,11 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 
 	const filters: SearchFilter[] = ['Songs', 'Artists', 'Albums', 'Folders'];
 
-	const handleSearch = async (text: string) => {
-		setSearchQuery(text);
-
+	const performSearch = useCallback(async (text: string, filter: SearchFilter) => {
 		if (text.trim() === '') {
 			setResults([]);
 			setHasSearched(false);
+			setIsLoading(false);
 			return;
 		}
 
@@ -76,8 +76,8 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		setHasSearched(true);
 
 		try {
-			switch (activeFilter) {
-				case 'Songs':
+			switch (filter) {
+				case 'Songs': {
 					const songs = await searchSongs(text);
 					const formattedSongs = songs.map((song: SearchResult) => ({
 						id: song.id,
@@ -88,9 +88,11 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 						image: { uri: song.image || 'https://via.placeholder.com/100' },
 						url: song.url,
 					}));
+
 					setResults(formattedSongs);
 					break;
-				case 'Artists':
+				}
+				case 'Artists': {
 					const artists = await searchArtists(text);
 					setResults(
 						artists.map((artist: SearchResult) => ({
@@ -101,7 +103,8 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 						})),
 					);
 					break;
-				case 'Albums':
+				}
+				case 'Albums': {
 					const albums = await searchAlbums(text);
 					setResults(
 						albums.map((album: SearchResult) => ({
@@ -112,6 +115,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 						})),
 					);
 					break;
+				}
 				default:
 					setResults([]);
 			}
@@ -121,18 +125,32 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		} finally {
 			setIsLoading(false);
 		}
-	};
+	}, []);
+
+	useEffect(() => {
+		const trimmedQuery = searchQuery.trim();
+		if (!trimmedQuery) {
+			setResults([]);
+			setHasSearched(false);
+			setIsLoading(false);
+			return;
+		}
+
+		const timeoutId = setTimeout(() => {
+			void performSearch(trimmedQuery, activeFilter);
+		}, SEARCH_DEBOUNCE_MS);
+
+		return () => {
+			clearTimeout(timeoutId);
+		};
+	}, [activeFilter, performSearch, searchQuery]);
 
 	const handleFilterChange = (filter: SearchFilter) => {
 		setActiveFilter(filter);
-		if (searchQuery.trim()) {
-			handleSearch(searchQuery);
-		}
 	};
 
 	const handleRecentSearchClick = (search: string) => {
 		setSearchQuery(search);
-		handleSearch(search);
 		// Add to recent searches if not already there
 		setRecentSearches((prev) => {
 			const filtered = prev.filter((s) => s !== search);
@@ -148,12 +166,8 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		setRecentSearches([]);
 	};
 
-	const handlePlaySong = (item: SongItem) => {
-		if (!item.url) {
-			return;
-		}
-
-		const queue: PlayerTrack[] = results
+	const resultsQueue = useMemo(
+		() => results
 			.filter((result): result is SongItem => Boolean(result?.url && result?.id))
 			.map((result) => ({
 				id: result.id,
@@ -161,7 +175,14 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 				artist: result.artist || 'Unknown Artist',
 				image: result.image,
 				url: result.url,
-			}));
+			})),
+		[results],
+	);
+
+	const handlePlaySong = useCallback((item: SongItem) => {
+		if (!item.url) {
+			return;
+		}
 
 		const selectedTrack: PlayerTrack = {
 			id: item.id,
@@ -171,8 +192,8 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 			url: item.url,
 		};
 
-		playSong(selectedTrack, queue.length ? queue : [selectedTrack]);
-	};
+		playSong(selectedTrack, resultsQueue.length ? resultsQueue : [selectedTrack]);
+	}, [playSong, resultsQueue]);
 
 	const toPlayerTrack = (item: SongItem): PlayerTrack => ({
 		id: item.id,
@@ -269,7 +290,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 			label: 'Show Songs',
 			onPress: () => {
 				setActiveFilter('Songs');
-				void handleSearch(`${item.title} songs`);
+				setSearchQuery(`${item.title} songs`);
 			},
 		},
 		{
@@ -288,7 +309,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 		}
 
 		setActiveFilter('Songs');
-		void handleSearch(`${item.title} songs`);
+		setSearchQuery(`${item.title} songs`);
 	};
 
 	const optionActions = selectedOptionItem
@@ -303,7 +324,7 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 			: selectedOptionItem.subtitle || 'Browse related songs'
 		: undefined;
 
-	const renderSearchResult = ({ item }: { item: SongItem }) => (
+	const renderSearchResult = useCallback(({ item }: { item: SongItem }) => (
 		<TouchableOpacity style={[styles.resultRow, { borderBottomColor: theme.border }]} onPress={() => handleResultPress(item)}>
 			<Image source={item.image} style={[styles.resultImage, { backgroundColor: theme.imagePlaceholder }]} />
 			<View style={styles.resultTextContainer}>
@@ -335,7 +356,9 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 				<Feather name="more-vertical" size={20} color={theme.icon} />
 			</TouchableOpacity>
 		</TouchableOpacity>
-	);
+	), [activeFilter, handlePlaySong, theme.border, theme.icon, theme.imagePlaceholder, theme.primary, theme.subText, theme.text]);
+
+	const resultKeyExtractor = useCallback((item: SongItem, index: number) => item.id || index.toString(), []);
 
 	return (
 		<SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}> 
@@ -350,12 +373,12 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 						style={[styles.searchInput, { color: theme.text }]}
 						placeholder="Search songs, artists..."
 						value={searchQuery}
-						onChangeText={handleSearch}
+						onChangeText={setSearchQuery}
 						placeholderTextColor={theme.subText}
 						autoFocus
 					/>
 					{searchQuery ? (
-						<TouchableOpacity onPress={() => handleSearch('')}>
+						<TouchableOpacity onPress={() => setSearchQuery('')}>
 							<Ionicons name="close-circle" size={20} color={theme.subText} />
 						</TouchableOpacity>
 					) : null}
@@ -446,7 +469,11 @@ const SearchScreen: React.FC<SearchScreenProps> = ({ onBackPress }) => {
 					<FlatList
 						data={results}
 						renderItem={renderSearchResult}
-						keyExtractor={(item, index) => item.id || index.toString()}
+						keyExtractor={resultKeyExtractor}
+						removeClippedSubviews
+						initialNumToRender={10}
+						maxToRenderPerBatch={10}
+						windowSize={7}
 						scrollEnabled={false}
 						contentContainerStyle={styles.resultsList}
 					/>

@@ -71,8 +71,6 @@ const Player: React.FC<PlayerProps> = ({
 const styles = StyleSheet.create({
 	container: {
 		height: 80,
-		borderWidth: 1,
-		borderRadius: 18,
 		paddingHorizontal: 16,
 		flexDirection: 'row',
 		alignItems: 'center',
